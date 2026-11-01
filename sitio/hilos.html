@@ -78,7 +78,7 @@ h4{margin:10px 0 6px;font-size:15px}
 <div class="bar">
   <div class="grp">
     <button class="btn" id="prev" aria-label="Nivel anterior"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <div class="lvl" id="lvl">Nivel 1 de 4</div>
+    <div class="lvl" id="lvl">Nivel 1 de 7</div>
     <button class="btn" id="next" aria-label="Nivel siguiente"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
   </div>
   <div class="grp">
@@ -139,10 +139,21 @@ const LEVELS = [
   { hint: 'Gira la gravedad con el dial y corta los hilos.', dial: true,
     anchors: [[3, 2.2], [7, 2.2]], core: [5, 6.2], goal: [1.5, 10.6], spikes: [{ x: 3.4, y: 13.6, w: 6.6, h: 1.4 }] },
   { hint: 'El hilo revienta si lo estiras. Úsalo para lanzar.', dial: true,
-    anchors: [[5, 1.8]], core: [5, 7], goal: [8.6, 10.6], spikes: [{ x: 0, y: 13.6, w: 7, h: 1.4 }, { x: 6.2, y: 6.2, w: 0.8, h: 4.4 }] }
+    anchors: [[5, 1.8]], core: [5, 7], goal: [8.6, 10.6], spikes: [{ x: 0, y: 13.6, w: 7, h: 1.4 }, { x: 6.2, y: 6.2, w: 0.8, h: 4.4 }] },
+  /* Niveles 5 a 7: más difíciles. Los cuatro primeros se dejan como están. */
+  { hint: 'Pasa por la puerta y llega al agujero.', dial: true,
+    anchors: [[2.5, 2], [7.5, 2]], core: [5, 5.2], goal: [8.2, 13.1],
+    spikes: [{ x: 0, y: 13.6, w: 6.4, h: 1.4 }, { x: 0, y: 8.6, w: 3.4, h: 1, p: 1 }, { x: 6.2, y: 8.6, w: 3.8, h: 1, p: 1 }] },
+  { hint: 'Sube por la chimenea.', dial: true,
+    anchors: [[1.5, 13], [8.5, 13]], core: [5, 9.5], goal: [5, 1.6],
+    spikes: [{ x: 0, y: 0, w: 3.7, h: 3.2, p: 1 }, { x: 6.3, y: 0, w: 3.7, h: 3.2, p: 1 }] },
+  { hint: 'Lanza la bola por encima del poste.', dial: true,
+    anchors: [[1.5, 2]], core: [4.5, 7], goal: [8.8, 3.6],
+    spikes: [{ x: 6.2, y: 6, w: 0.9, h: 8, p: 1 }, { x: 0, y: 13.6, w: 6.2, h: 1.4 }] }
 ];
 
 /* ---------- Estado ---------- */
+let hintT = 0;
 let li = 0, lv = null, core = null, threads = [], parts = [], whips = [];
 let gx = 0, gy = 1;                  // dirección de gravedad (unitaria)
 let freeze = 0, shakeT = 0, timeNow = 0;
@@ -162,6 +173,7 @@ function loadLevel(n, keep) {
   lv = { d, time: 0, cuts: 0, snaps: 0, state: 'play', wait: 0, attempts: keep ? lv.attempts + 1 : 0 };
   document.getElementById('lvl').textContent = 'Nivel ' + (li + 1) + ' de ' + LEVELS.length;
   const hint = document.getElementById('hint'); hint.textContent = d.hint; hint.classList.remove('gone');
+  clearTimeout(hintT); hintT = setTimeout(() => hint.classList.add('gone'), 4500);
   document.getElementById('win').hidden = true;
   resize();
 }
@@ -362,8 +374,8 @@ function render() {
   for (const s of lv.d.spikes) {
     const X = ox + s.x * sc, Y = oy + s.y * sc, w = s.w * sc, hh = s.h * sc, n = Math.max(1, Math.round(s.w / 0.7)), tw = w / n;
     ctx.fillStyle = '#5B3F5E';
-    if (s.w > s.h) { for (let i = 0; i < n; i++) { ctx.beginPath(); ctx.moveTo(X + i * tw, Y + hh); ctx.lineTo(X + i * tw + tw / 2, Y); ctx.lineTo(X + (i + 1) * tw, Y + hh); ctx.closePath(); ctx.fill(); } }
-    else { rr(X, Y, w, hh, w / 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.2)'; rr(X + w * 0.2, Y + 4, w * 0.2, hh - 8, 4); ctx.fill(); }
+    if (s.w > s.h && !s.p) { for (let i = 0; i < n; i++) { ctx.beginPath(); ctx.moveTo(X + i * tw, Y + hh); ctx.lineTo(X + i * tw + tw / 2, Y); ctx.lineTo(X + (i + 1) * tw, Y + hh); ctx.closePath(); ctx.fill(); } }
+    else { rr(X, Y, w, hh, Math.min(w, hh) / 2); ctx.fill(); if (hh > w) { ctx.fillStyle = 'rgba(255,255,255,0.2)'; rr(X + w * 0.2, Y + 4, w * 0.2, hh - 8, 4); ctx.fill(); } }
   }
   // meta
   { const g = lv.d.goal, X = ox + g[0] * sc, Y = oy + g[1] * sc, R = GOAL_R * sc;

@@ -73,7 +73,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 <div class="bar">
   <div class="grp">
     <button class="btn" id="prev" aria-label="Nivel anterior"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <div class="lvl" id="lvl">Nivel 1 de 5</div>
+    <div class="lvl" id="lvl">Nivel 1 de 8</div>
     <button class="btn" id="next" aria-label="Nivel siguiente"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
   </div>
   <div class="grp">
@@ -141,7 +141,19 @@ const LEVELS = [
     walls: [{ x: 4.5, y: 6.2, w: 1, h: 2.8 }], pits: [] },
   { hint: 'Los pozos oscuros se la tragan. Evítalos.',
     balls: [{ x: 5, y: 13, c: 'sol' }], goals: [{ x: 5, y: 2.2, c: 'sol' }], walls: [],
-    pits: [{ x: 5, y: 10, r: 0.7 }, { x: 2.6, y: 7, r: 0.8 }, { x: 7.4, y: 7, r: 0.8 }, { x: 5, y: 4.6, r: 0.7 }] }
+    pits: [{ x: 5, y: 10, r: 0.7 }, { x: 2.6, y: 7, r: 0.8 }, { x: 7.4, y: 7, r: 0.8 }, { x: 5, y: 4.6, r: 0.7 }] },
+  /* Niveles 6 a 8: más difíciles. Los cinco primeros se dejan como tutorial. */
+  { hint: 'Tres curvas estrechas. Ve despacio.',
+    balls: [{ x: 2.5, y: 13.2, c: 'sol' }], goals: [{ x: 3, y: 2.2, c: 'sol' }],
+    walls: [{ x: 0, y: 10.4, w: 8, h: 0.6 }, { x: 2, y: 7.2, w: 8, h: 0.6 }, { x: 0, y: 4, w: 8, h: 0.6 }], pits: [] },
+  { hint: 'Esta bola es ligera: responde mucho y se pasa de largo.',
+    balls: [{ x: 5, y: 13, c: 'sol', agil: 1.8 }], goals: [{ x: 5, y: 2.2, c: 'sol' }], walls: [],
+    pits: [{ x: 3.3, y: 10.6, r: 0.8 }, { x: 6.7, y: 10.6, r: 0.8 }, { x: 5, y: 8.2, r: 0.8 }, { x: 2, y: 7, r: 0.8 },
+           { x: 8, y: 7, r: 0.8 }, { x: 3.4, y: 4.6, r: 0.8 }, { x: 6.6, y: 4.6, r: 0.8 }] },
+  { hint: 'Dos bolas, pozos y un poste. Piensa en el orden.',
+    balls: [{ x: 3, y: 12.8, c: 'sol' }, { x: 7, y: 12.8, c: 'rosa', agil: 0.7 }],
+    goals: [{ x: 7, y: 2.4, c: 'sol' }, { x: 3, y: 2.4, c: 'rosa' }],
+    walls: [{ x: 4.5, y: 6.2, w: 1, h: 2.8 }], pits: [{ x: 5, y: 10.8, r: 0.7 }, { x: 5, y: 4.2, r: 0.7 }] }
 ];
 
 /* ---------- Estado ---------- */
