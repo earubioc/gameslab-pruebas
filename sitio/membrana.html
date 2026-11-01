@@ -26,15 +26,16 @@ html,body{height:100%;margin:0;background:var(--crema);color:var(--tinta);font-f
 #stage{position:fixed;inset:0}
 canvas{display:block;width:100%;height:100%;touch-action:none}
 .bar{position:fixed;left:0;right:0;top:0;height:56px;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none}
-.grp{display:flex;align-items:center;gap:8px;pointer-events:auto}
+.grp{display:flex;align-items:center;gap:6px;pointer-events:auto}
 button{font:inherit;color:inherit;border:0;cursor:pointer}
-.btn{width:44px;height:44px;border-radius:14px;background:var(--crema-oscuro);display:grid;place-items:center;
+.btn{width:40px;height:40px;border-radius:13px;background:var(--crema-oscuro);display:grid;place-items:center;
   box-shadow:0 3px 0 #CDB787, inset 0 1px 0 rgba(255,255,255,.55);transition:transform .08s,box-shadow .08s}
 .btn:active{transform:translateY(2px);box-shadow:0 1px 0 #CDB787, inset 0 1px 0 rgba(255,255,255,.55)}
 .btn:focus-visible,.pill:focus-visible,.cta:focus-visible{outline:3px solid var(--coral);outline-offset:2px}
 .btn svg{width:22px;height:22px;stroke:var(--tinta);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .btn.off{opacity:.55}
-.lvl{min-width:104px;text-align:center;font-weight:600;font-size:18px;letter-spacing:.2px}
+.lvl{min-width:84px;max-width:128px;text-align:center;font-weight:600;font-size:17px;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn.dis{opacity:.35;pointer-events:none}
 .hint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);max-width:min(94vw,460px);text-align:center;
   background:rgba(74,59,71,.9);color:#fff;padding:9px 16px;border-radius:999px;font-size:15px;line-height:1.25;pointer-events:none;transition:opacity .35s}
 .hint.gone{opacity:0}
@@ -64,13 +65,40 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 .ctl label{font-size:15px}
 .ctl output{font-variant-numeric:tabular-nums;text-align:right;font-size:14px;opacity:.8}
 .ctl input{grid-column:1 / -1;width:100%;accent-color:var(--coral);height:28px}
+input.txt,textarea.txt{font:inherit;color:var(--tinta);border:2px solid var(--crema-oscuro);border-radius:12px;padding:8px 10px;background:#fff8e8;min-width:0;user-select:text;-webkit-user-select:text}
+#ebar{display:none}
+body.edit #ebar{display:flex}
+body.edit #bar,body.edit #hint{display:none}
+#pal{position:fixed;left:0;right:0;bottom:0;display:none;gap:4px;justify-content:center;padding:8px 8px 12px;background:var(--crema);box-shadow:0 -4px 14px rgba(0,0,0,.12)}
+body.edit #pal{display:flex}
+.tool{flex:1;max-width:58px;min-width:42px;border-radius:14px;background:var(--crema-oscuro);padding:6px 2px 5px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px;box-shadow:0 3px 0 #CDB787}
+.tool.on{background:#fff;outline:3px solid var(--coral);outline-offset:-1px}
+.tool:focus-visible{outline:3px solid var(--tinta)}
+.sw{display:block;width:26px;height:26px;border-radius:50%}
+.sw.bs{background:radial-gradient(circle at 35% 30%,#fff6cf,#FFD166 45%,#E8AE3A)}
+.sw.br{background:radial-gradient(circle at 35% 30%,#ffe3ee,#F58FB3 45%,#D96C93)}
+.sw.gs{background:#3a2a33;box-shadow:0 0 0 4px #FFD166;width:18px;height:18px;margin:4px}
+.sw.gr{background:#3a2a33;box-shadow:0 0 0 4px #F58FB3;width:18px;height:18px;margin:4px}
+.sw.wl{border-radius:6px;width:30px;height:11px;background:#F2877B;margin:7.5px 0;box-shadow:0 2px 0 #C9665B}
+.sw.pt{background:radial-gradient(circle,#2c2230 55%,#5a4560)}
+.sw.er{border-radius:0;display:grid;place-items:center}
+.sw.er svg{width:22px;height:22px;stroke:var(--tinta);fill:none;stroke-width:2.8;stroke-linecap:round}
+.item{display:grid;grid-template-columns:56px 1fr;gap:10px;background:#fff8e8;border-radius:16px;padding:8px;margin-bottom:8px}
+.item canvas{width:56px;height:84px;border-radius:10px}
+.item b{font-size:16px}
+.chk{color:#2a8f72;font-size:13px;font-weight:500}
+.mini{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.mini button{padding:7px 11px;border-radius:10px;background:var(--crema-oscuro);font-size:13px;box-shadow:0 2px 0 #CDB787}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);max-width:min(92vw,420px);background:rgba(74,59,71,.95);color:#fff;
+  padding:10px 16px;border-radius:16px;font-size:14px;line-height:1.3;text-align:center;z-index:9;pointer-events:none}
+.toast[hidden]{display:none}
 @media (prefers-reduced-motion:reduce){.card{animation:none}.hint{transition:none}}
 </style>
 </head>
 <body>
 <div id="stage"><canvas id="cv" aria-label="Tablero del juego"></canvas></div>
 
-<div class="bar">
+<div class="bar" id="bar">
   <div class="grp">
     <button class="btn" id="prev" aria-label="Nivel anterior"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
     <div class="lvl" id="lvl">Nivel 1 de 8</div>
@@ -78,12 +106,35 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
   </div>
   <div class="grp">
     <button class="btn" id="restart" aria-label="Reiniciar nivel"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/></svg></button>
-    <button class="btn" id="snd" aria-label="Sonido"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9a4 4 0 0 1 0 6"/></svg></button>
+    <button class="btn" id="create" aria-label="Crear y jugar mis niveles"><svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16l-1 4z"/><path d="M14 7l3 3"/></svg></button>
     <button class="btn" id="cfg" aria-label="Ajustes de sensación"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
   </div>
 </div>
 
+<div class="bar" id="ebar">
+  <div class="grp" style="flex:1;min-width:0">
+    <button class="btn" id="eBack" aria-label="Guardar y salir del editor"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <input class="txt" id="eName" maxlength="16" placeholder="Nombre del nivel" aria-label="Nombre del nivel" style="flex:1;min-width:0;height:40px;font-size:15px">
+  </div>
+  <div class="grp">
+    <button class="btn" id="eClear" aria-label="Vaciar el nivel"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button>
+    <button class="btn" id="eShare" aria-label="Compartir código"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 11l8-4M8 13l8 4"/></svg></button>
+    <button class="pill" id="eTest" style="flex:none;padding:0 14px;height:40px;background:var(--coral);color:#fff;box-shadow:0 3px 0 #C9665B;font-weight:600">Probar</button>
+  </div>
+</div>
+
+<div id="pal" role="toolbar" aria-label="Piezas">
+  <button class="tool on" data-tool="ball_sol" aria-label="Bola amarilla"><span class="sw bs"></span>Bola</button>
+  <button class="tool" data-tool="ball_rosa" aria-label="Bola rosa, más pesada"><span class="sw br"></span>Bola</button>
+  <button class="tool" data-tool="goal_sol" aria-label="Meta amarilla"><span class="sw gs"></span>Meta</button>
+  <button class="tool" data-tool="goal_rosa" aria-label="Meta rosa"><span class="sw gr"></span>Meta</button>
+  <button class="tool" data-tool="wall" aria-label="Pared: toca o arrastra"><span class="sw wl"></span>Pared</button>
+  <button class="tool" data-tool="pit" aria-label="Pozo"><span class="sw pt"></span>Pozo</button>
+  <button class="tool" data-tool="erase" aria-label="Borrar pieza"><span class="sw er"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span>Borrar</button>
+</div>
+
 <div class="hint" id="hint"></div>
+<div class="toast" id="toast" hidden></div>
 
 <div class="overlay" id="win" hidden>
   <div class="card" role="dialog" aria-labelledby="winT">
@@ -103,7 +154,26 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
   <h3>Sensación de juego</h3>
   <p class="note">Mueve los controles y prueba. Los valores se guardan en este navegador.</p>
   <div id="ctls"></div>
+  <div class="row" style="margin-bottom:8px"><button class="pill" id="snd">Sonido: sí</button></div>
   <div class="row"><button class="pill" id="reset">Restaurar valores</button><button class="pill" id="closeP">Cerrar</button></div>
+</div>
+
+<div class="panel" id="mine" hidden>
+  <h3>Mis niveles</h3>
+  <p class="note">Crea niveles, pruébalos y compártelos con un código o un enlace.</p>
+  <button class="cta" id="mNew">Crear un nivel nuevo</button>
+  <div id="mList"></div>
+  <div class="row" style="margin:6px 0 10px"><input class="txt" id="mCode" placeholder="Pega aquí un código M1-..." aria-label="Código de nivel" style="flex:1"><button class="pill" id="mAdd" style="flex:none;padding:0 16px">Añadir</button></div>
+  <button class="pill" id="mClose" style="width:100%">Cerrar</button>
+</div>
+
+<div class="overlay" id="codeDlg" hidden style="z-index:8">
+  <div class="card">
+    <h2 style="font-size:22px">Copia el texto</h2>
+    <p class="sub">Mantén pulsado el texto para copiarlo y pégalo en un mensaje.</p>
+    <textarea class="txt" id="codeTxt" readonly rows="5" style="width:100%;font-size:14px"></textarea>
+    <button class="cta" id="codeOk" style="margin-top:12px">Listo</button>
+  </div>
 </div>
 
 <script>
@@ -165,18 +235,23 @@ let balls = [], parts = [], timeNow = 0;
 let audioOn = true, ac = null;
 try { audioOn = localStorage.getItem('membrana.snd') !== '0'; } catch (e) {}
 
-function loadLevel(n, keepAttempts) {
-  li = (n + LEVELS.length) % LEVELS.length;
-  const d = LEVELS[li];
+function begin(d, keepAttempts, label, hintText) {
   h.fill(0); v.fill(0); tgt.fill(0); box = null; fingers.clear(); parts = [];
   balls = d.balls.map((b, i) => ({ i, x: b.x, y: b.y, vx: 0, vy: 0, c: b.c, agil: b.agil || 1, st: 'play', t: 0, sq: 0, blink: 2 + i, cd: 0 }));
   lv = { d, started: false, time: 0, touches: 0, path: 0, state: 'play', wait: 0,
-         attempts: keepAttempts ? lv.attempts + 1 : 0 };
-  document.getElementById('lvl').textContent = 'Nivel ' + (li + 1) + ' de ' + LEVELS.length;
+         attempts: keepAttempts && lv ? lv.attempts + 1 : 0 };
+  document.getElementById('lvl').textContent = label;
   const hint = document.getElementById('hint');
-  hint.textContent = d.hint; hint.classList.remove('gone');
+  hint.textContent = hintText; hint.classList.toggle('gone', !hintText);
   document.getElementById('win').hidden = true;
 }
+function loadLevel(n, keepAttempts) {
+  li = (n + LEVELS.length) % LEVELS.length;
+  cur = { kind: 'std' }; setNav(true);
+  begin(LEVELS[li], keepAttempts, 'Nivel ' + (li + 1) + ' de ' + LEVELS.length, LEVELS[li].hint);
+}
+function reload(keep) { if (cur.kind === 'custom') playCustom(cur.entry, cur.test, keep); else loadLevel(li, keep); }
+function setNav(on) { document.getElementById('prev').classList.toggle('dis', !on); document.getElementById('next').classList.toggle('dis', !on); }
 
 /* ---------- Superficie ---------- */
 function setTargets() {
@@ -272,12 +347,13 @@ function stepBalls() {
 
 /* ---------- Bucle de simulación ---------- */
 function simStep() {
+  if (mode === 'edit') { timeNow += DT; return; }
   for (const f of fingers.values()) f.env += (1 - f.env) * Math.min(1, DT * 20);
   setTargets(); stepSurface(); stepBalls();
   if (lv.started && lv.state === 'play') lv.time += DT;
   if (lv.state === 'play') {
     if (balls.every(b => b.st === 'in' && b.t > 0.35)) { lv.state = 'won'; lv.wait = 0.45; winFx(); }
-    else if (balls.some(b => b.st === 'fell' && b.t > 0.55)) { loadLevel(li, true); }
+    else if (balls.some(b => b.st === 'fell' && b.t > 0.55)) { reload(true); }
   } else if (lv.state === 'won') {
     lv.wait -= DT; if (lv.wait <= 0) { lv.state = 'done'; showWin(); }
   }
@@ -291,7 +367,7 @@ function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   vw = cv.clientWidth; vh = cv.clientHeight;
   cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr);
-  const top = 62, bottom = 14, mx = 12;
+  const top = 62, bottom = mode === 'edit' ? 84 : 14, mx = 12;
   sc = Math.min((vw - 2 * mx) / W, (vh - top - bottom) / H);
   ox = (vw - W * sc) / 2; oy = top + (vh - top - bottom - H * sc) / 2;
 }
@@ -301,6 +377,7 @@ function toWorld(px, py) {
   return [Math.min(W - 0.05, Math.max(0.05, wx)), Math.min(H - 0.05, Math.max(0.05, wy))];
 }
 cv.addEventListener('pointerdown', e => {
+  if (mode === 'edit') return edDown(e);
   if (lv.state !== 'play') return;
   initAudio();
   const r = cv.getBoundingClientRect(), [x, y] = toWorld(e.clientX - r.left, e.clientY - r.top);
@@ -311,11 +388,12 @@ cv.addEventListener('pointerdown', e => {
   slide(190, 120, 0.09, 0.07);
 });
 cv.addEventListener('pointermove', e => {
+  if (mode === 'edit') return edMove(e);
   const f = fingers.get(e.pointerId); if (!f) return;
   const r = cv.getBoundingClientRect(), [x, y] = toWorld(e.clientX - r.left, e.clientY - r.top);
   lv.path += Math.hypot(x - f.x, y - f.y); f.x = x; f.y = y;
 });
-const up = e => fingers.delete(e.pointerId);
+const up = e => { if (mode === 'edit') return edUp(e); fingers.delete(e.pointerId); };
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 window.addEventListener('blur', () => fingers.clear());
 
@@ -349,18 +427,21 @@ function winFx() {
   }
 }
 function statsText() {
-  return 'Membrana, nivel ' + (li + 1) + ': ' + lv.time.toFixed(1).replace('.', ',') + ' s, ' + lv.touches + ' toques, ' +
+  return 'Membrana, ' + (cur.kind === 'custom' ? 'nivel "' + cur.entry.name + '"' : 'nivel ' + (li + 1)) + ': ' + lv.time.toFixed(1).replace('.', ',') + ' s, ' + lv.touches + ' toques, ' +
     (lv.path / H).toFixed(1).replace('.', ',') + ' pantallas de dedo' + (lv.attempts ? ', ' + (lv.attempts + 1) + ' intentos' : '');
 }
 function showWin() {
-  const last = li === LEVELS.length - 1;
-  document.getElementById('winT').textContent = last ? '¡Completado!' : '¡Listo!';
-  document.getElementById('winS').textContent = lv.attempts ? 'Nivel ' + (li + 1) + ' en ' + (lv.attempts + 1) + ' intentos' : 'Nivel ' + (li + 1) + ' a la primera';
+  const cu = cur.kind === 'custom', last = !cu && li === LEVELS.length - 1;
+  winKind = cu ? (cur.test ? 'test' : 'custom') : 'std';
+  if (winKind === 'test') { cur.entry.verified = true; persist(); }
+  const nm = cu ? '"' + cur.entry.name + '"' : 'Nivel ' + (li + 1);
+  document.getElementById('winT').textContent = winKind === 'test' ? '¡Nivel verificado!' : last ? '¡Completado!' : '¡Listo!';
+  document.getElementById('winS').textContent = winKind === 'test' ? 'Se puede ganar. Ya puedes compartir el código.' : lv.attempts ? nm + ' en ' + (lv.attempts + 1) + ' intentos' : nm + ' a la primera';
   document.getElementById('sT').textContent = lv.time.toFixed(1).replace('.', ',');
   document.getElementById('sD').textContent = lv.touches;
   document.getElementById('sP').textContent = (lv.path / H).toFixed(1).replace('.', ',');
-  document.getElementById('again2').textContent = last ? 'Volver al nivel 1' : 'Siguiente nivel';
-  document.getElementById('copy').textContent = 'Copiar resultado';
+  document.getElementById('again2').textContent = winKind === 'test' ? 'Seguir editando' : winKind === 'custom' ? 'Mis niveles' : last ? 'Volver al nivel 1' : 'Siguiente nivel';
+  document.getElementById('copy').textContent = cu ? 'Compartir código' : 'Copiar resultado';
   document.getElementById('win').hidden = false;
 }
 
@@ -405,7 +486,7 @@ function drawBall(b) {
   // ojos: miran al dedo si lo hay, si no, al agujero
   let lx = 0, ly = 0, tx, ty;
   const f = fingers.values().next().value;
-  if (f) { tx = f.x - b.x; ty = f.y - b.y; } else { const g = lv.d.goals.find(q => q.c === b.c) || lv.d.goals[0]; tx = g.x - b.x; ty = g.y - b.y; }
+  if (f) { tx = f.x - b.x; ty = f.y - b.y; } else { const g = lv.d.goals.find(q => q.c === b.c) || lv.d.goals[0]; if (g) { tx = g.x - b.x; ty = g.y - b.y; } else { tx = 0; ty = 1; } }
   const td = Math.hypot(tx, ty) || 1; lx = tx / td * R * 0.09; ly = ty / td * R * 0.09;
   const blinkT = (timeNow + b.blink * 1.7) % 4.2, eh = blinkT > 4.05 ? 0.12 : 1;
   for (const s of [-1, 1]) {
@@ -434,6 +515,7 @@ function render() {
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(surf, 0, 0, NX, NY, ox - CELL * sc / 2, oy - CELL * sc / 2, bw + CELL * sc, bh + CELL * sc);
   ctx.globalAlpha = 0.07; ctx.fillStyle = ctx.createPattern(weave, 'repeat'); ctx.fillRect(ox, oy, bw, bh); ctx.globalAlpha = 1;
+  if (mode === 'edit') drawGrid();
   // pozos
   for (const p of lv.d.pits) {
     const X = ox + p.x * sc, Y = oy + p.y * sc, R = p.r * sc;
@@ -457,6 +539,7 @@ function render() {
     ctx.fillStyle = '#F2877B'; rr(X, Y, ww, hh, r); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.6; ctx.setLineDash([5, 5]); rr(X + 4, Y + 4, ww - 8, hh - 8, Math.max(2, r - 3)); ctx.stroke(); ctx.setLineDash([]);
   }
+  if (mode === 'edit') drawEdOverlay();
   // el dedo: un anillo suave donde se hunde la tela
   for (const f of fingers.values()) {
     ctx.strokeStyle = 'rgba(255,255,255,' + (0.55 * f.env) + ')'; ctx.lineWidth = 2.5;
@@ -484,16 +567,21 @@ function frame(t) {
 
 /* ---------- Interfaz ---------- */
 const $ = id => document.getElementById(id);
-$('prev').onclick = () => loadLevel(li - 1);
-$('next').onclick = () => loadLevel(li + 1);
-$('restart').onclick = () => loadLevel(li, true);
-$('retry').onclick = () => loadLevel(li, true);
-$('again2').onclick = () => loadLevel(li + 1);
+$('prev').onclick = () => { if (cur.kind === 'std') loadLevel(li - 1); };
+$('next').onclick = () => { if (cur.kind === 'std') loadLevel(li + 1); };
+$('restart').onclick = () => reload(true);
+$('retry').onclick = () => reload(true);
+$('again2').onclick = () => {
+  if (winKind === 'test') enterEdit(cur.entry);
+  else if (winKind === 'custom') { loadLevel(li); openMine(); }
+  else loadLevel(li + 1);
+};
 $('copy').onclick = async () => {
+  if (winKind !== 'std') { shareEntry(cur.entry); return; }
   const el = $('copy');
   try { await navigator.clipboard.writeText(statsText()); el.textContent = 'Copiado'; } catch (e) { el.textContent = 'No se pudo copiar'; }
 };
-const sndBtn = $('snd'); const paintSnd = () => sndBtn.classList.toggle('off', !audioOn);
+const sndBtn = $('snd'); const paintSnd = () => { sndBtn.textContent = 'Sonido: ' + (audioOn ? 'sí' : 'no'); };
 sndBtn.onclick = () => { audioOn = !audioOn; try { localStorage.setItem('membrana.snd', audioOn ? '1' : '0'); } catch (e) {} if (audioOn) initAudio(); paintSnd(); };
 paintSnd();
 const CTLS = [['Profundidad del hundimiento', 'depth', 0.4, 1.8, 0.05], ['Radio del dedo', 'radius', 0.8, 2.4, 0.05], ['Rozamiento de la bola', 'fric', 0.3, 3.5, 0.05],
@@ -513,10 +601,252 @@ $('cfg').onclick = () => { buildCtls(); $('panel').hidden = !$('panel').hidden; 
 $('closeP').onclick = () => { $('panel').hidden = true; };
 $('reset').onclick = () => { Object.assign(P, DEFAULTS); try { localStorage.removeItem('membrana.P'); } catch (e) {} buildCtls(); };
 
-/* gancho para pruebas automáticas */
-window.__t = { P, get lv() { return lv; }, get balls() { return balls; }, get li() { return li; }, loadLevel, simStep, fingers, LEVELS, W, H };
+/* ---------- Editor de niveles ---------- */
+const LIM = { balls: 3, goals: 3, walls: 20, pits: 10 };
+const PIT_R = 0.75, WALL_T = 0.6;
+let mode = 'play', cur = { kind: 'std' }, ed = null, mine = [], toastT = 0, winKind = 'std';
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const snap = x => Math.round(x * 2) / 2;
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3800); }
 
-resize(); loadLevel(0); requestAnimationFrame(frame);
+/* Código de nivel: unos 40 a 90 caracteres, sin servidor. Cabecera de 16 bits, piezas en medias unidades, CRC-8. */
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+function packBits(fields) {
+  let acc = 0, nb = 0; const out = [];
+  for (const [val, n] of fields) for (let i = n - 1; i >= 0; i--) { acc = (acc << 1) | ((val >> i) & 1); if (++nb === 8) { out.push(acc); acc = 0; nb = 0; } }
+  if (nb) out.push(acc << (8 - nb));
+  return out;
+}
+function checksum(bytes) { let c = 0; for (const b of bytes) { c ^= b; for (let k = 0; k < 8; k++) c = (c & 128) ? ((c << 1) ^ 7) & 255 : (c << 1) & 255; } return c; }  // CRC-8: detecta todo cambio de un carácter
+function b64enc(by) {
+  let s = '';
+  for (let i = 0; i < by.length; i += 3) {
+    const n = (by[i] << 16) | ((by[i + 1] || 0) << 8) | (by[i + 2] || 0);
+    s += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + (i + 1 < by.length ? B64[(n >> 6) & 63] : '') + (i + 2 < by.length ? B64[n & 63] : '');
+  }
+  return s;
+}
+function b64dec(s) {
+  const out = []; let acc = 0, nb = 0;
+  for (const ch of s) {
+    const val = B64.indexOf(ch); if (val < 0) throw new Error('El código tiene caracteres que no son válidos.');
+    acc = (acc << 6) | val; nb += 6; if (nb >= 8) { nb -= 8; out.push((acc >> nb) & 255); acc &= (1 << nb) - 1; }
+  }
+  return out;
+}
+function encodeLevel(d, verified) {
+  const q = x => clamp(Math.round(x * 2), 0, 31);
+  const f = [[1, 4], [verified ? 1 : 0, 1], [d.balls.length, 3], [d.goals.length, 3], [d.walls.length, 5], [d.pits.length, 4]];
+  for (const b of d.balls) f.push([q(b.x), 5], [q(b.y), 5], [b.c === 'rosa' ? 1 : 0, 1]);
+  for (const g of d.goals) f.push([q(g.x), 5], [q(g.y), 5], [g.c === 'rosa' ? 1 : 0, 1]);
+  for (const w of d.walls) { const hz = w.w >= w.h; f.push([hz ? 0 : 1, 1], [q(w.x), 5], [q(w.y), 5], [q(hz ? w.w : w.h), 5]); }
+  for (const p of d.pits) f.push([q(p.x), 5], [q(p.y), 5]);
+  const by = packBits(f); by.push(checksum(by));
+  return 'M1-' + b64enc(by);
+}
+function decodeLevel(code) {
+  const m = String(code).match(/M1-(\S+)/); if (!m) throw new Error('El código tiene que empezar con M1-.');
+  const by = b64dec(m[1].replace(/[.,;:!?)\]"']+$/, '')); if (by.length < 4) throw new Error('El código es demasiado corto.');
+  const sum = by.pop(); if (checksum(by) !== sum) throw new Error('El código tiene un error. Revisa que esté completo.');
+  let pos = 0; const total = by.length * 8;
+  const rd = n => { if (pos + n > total) throw new Error('El código está incompleto.'); let val = 0; for (let i = 0; i < n; i++, pos++) val = (val << 1) | ((by[pos >> 3] >> (7 - (pos & 7))) & 1); return val; };
+  if (rd(4) !== 1) throw new Error('Este código es de otra versión del juego.');
+  const verified = rd(1) === 1, nb = rd(3), ng = rd(3), nw = rd(5), np = rd(4);
+  if (nb > LIM.balls || ng > LIM.goals || nw > LIM.walls || np > LIM.pits) throw new Error('El nivel tiene demasiadas piezas.');
+  const X = r => clamp(r / 2, 0.5, W - 0.5), Y = r => clamp(r / 2, 0.5, H - 0.5), d = { balls: [], goals: [], walls: [], pits: [] };
+  for (let i = 0; i < nb; i++) { const x = rd(5), y = rd(5), c = rd(1) ? 'rosa' : 'sol'; d.balls.push({ x: X(x), y: Y(y), c, agil: c === 'rosa' ? 0.7 : 1 }); }
+  for (let i = 0; i < ng; i++) { const x = rd(5), y = rd(5), c = rd(1) ? 'rosa' : 'sol'; d.goals.push({ x: X(x), y: Y(y), c }); }
+  for (let i = 0; i < nw; i++) {
+    const o = rd(1), x = rd(5) / 2, y = rd(5) / 2, len = Math.max(1, rd(5)) / 2;
+    if (o === 0) { const l = Math.min(len, W); d.walls.push({ x: clamp(x, 0, W - l), y: clamp(y, 0, H - WALL_T), w: l, h: WALL_T }); }
+    else { const l = Math.min(len, H); d.walls.push({ x: clamp(x, 0, W - WALL_T), y: clamp(y, 0, H - l), w: WALL_T, h: l }); }
+  }
+  for (let i = 0; i < np; i++) { const x = rd(5), y = rd(5); d.pits.push({ x: X(x), y: Y(y), r: PIT_R }); }
+  return { d, verified };
+}
+function validate(d) {
+  if (!d.balls.length) return 'Falta una bola.';
+  if (!d.goals.length) return 'Falta una meta.';
+  for (const c of ['sol', 'rosa']) {
+    const nm = c === 'sol' ? 'amarilla' : 'rosa', nb = d.balls.filter(b => b.c === c).length, ng = d.goals.filter(g => g.c === c).length;
+    if (nb && !ng) return 'Falta una meta ' + nm + ' para la bola ' + nm + '.';
+    if (ng && !nb) return 'Sobra una meta ' + nm + ': no hay bola ' + nm + '.';
+  }
+  for (const b of d.balls) {
+    for (const w of d.walls) if (Math.hypot(b.x - clamp(b.x, w.x, w.x + w.w), b.y - clamp(b.y, w.y, w.y + w.h)) < BALL_R + 0.05) return 'Una bola está tocando una pared.';
+    for (const p of d.pits) if (Math.hypot(b.x - p.x, b.y - p.y) < PIT_R + BALL_R * 0.5) return 'Una bola está sobre un pozo.';
+    for (const o of d.balls) if (o !== b && Math.hypot(b.x - o.x, b.y - o.y) < BALL_R * 2 + 0.05) return 'Dos bolas se superponen.';
+  }
+  for (const g of d.goals) {
+    for (const w of d.walls) if (g.x > w.x - 0.4 && g.x < w.x + w.w + 0.4 && g.y > w.y - 0.4 && g.y < w.y + w.h + 0.4) return 'Una meta está debajo de una pared.';
+    for (const p of d.pits) if (Math.hypot(g.x - p.x, g.y - p.y) < PIT_R + 0.6) return 'Un pozo tapa una meta.';
+  }
+  return null;
+}
+
+/* Mis niveles: se guardan en este navegador como códigos */
+function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function starterDef() { return { balls: [{ x: 5, y: 13, c: 'sol', agil: 1 }], goals: [{ x: 5, y: 2.5, c: 'sol' }], walls: [], pits: [] }; }
+function persist() { try { localStorage.setItem('membrana.mis', JSON.stringify(mine.map(e => ({ id: e.id, name: e.name, code: encodeLevel(e.def, e.verified) })))); } catch (e) {} }
+function restoreMine() {
+  try { for (const r of JSON.parse(localStorage.getItem('membrana.mis') || '[]')) { try { const o = decodeLevel(r.code); mine.push({ id: r.id, name: String(r.name || 'Mi nivel').slice(0, 16), def: o.d, verified: o.verified }); } catch (e) {} } } catch (e) {}
+}
+function newEntry() { const e = { id: newId(), name: 'Mi nivel ' + (mine.length + 1), def: starterDef(), verified: false }; mine.unshift(e); persist(); return e; }
+function addImported(d, verified, label) {
+  const code = encodeLevel(d, verified), dup = mine.find(m => encodeLevel(m.def, m.verified) === code); if (dup) return dup;
+  const e = { id: newId(), name: label + ' ' + (mine.length + 1), def: d, verified }; mine.unshift(e); persist(); return e;
+}
+function playCustom(entry, test, keep) {
+  const msg = validate(entry.def); if (msg) { toast('Este nivel tiene un problema: ' + msg); return false; }
+  closeMine(); setMode('play'); cur = { kind: 'custom', entry, test: !!test }; setNav(false);
+  begin(entry.def, keep, entry.name + (entry.verified ? ' ✓' : ''), ''); return true;
+}
+function importHash() {
+  const m = location.hash.match(/#(M1-[A-Za-z0-9_-]+)/); if (!m) return false;
+  try { const o = decodeLevel(m[1]); return playCustom(addImported(o.d, o.verified, 'Nivel compartido'), false); } catch (e) { toast(e.message); return false; }
+}
+window.addEventListener('hashchange', importHash);
+async function shareEntry(entry) {
+  const code = encodeLevel(entry.def, entry.verified);
+  const okHost = /(^|\.)github\.io$/.test(location.hostname) || location.hostname === 'localhost';
+  const link = okHost ? location.origin + location.pathname + '#' + code : '';
+  const text = 'Mi nivel de Membrana' + (entry.verified ? ' (verificado)' : '') + '.\n' + (link ? link + '\n' : '') + 'Código: ' + code;
+  try { if (navigator.share) { await navigator.share({ title: 'Membrana', text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(text); toast('Texto copiado. Pégalo en un mensaje.'); return; } catch (e) {}
+  const t = document.getElementById('codeTxt'); t.value = text; document.getElementById('codeDlg').hidden = false; t.focus(); t.select();
+}
+function openMine() { renderMine(); document.getElementById('mine').hidden = false; }
+function closeMine() { document.getElementById('mine').hidden = true; }
+function drawThumb(c, d) {
+  const g = c.getContext('2d'), s = c.width / W;
+  g.fillStyle = '#7CCDB9'; g.beginPath(); g.roundRect(0, 0, c.width, c.height, 14); g.fill();
+  g.fillStyle = '#F2877B'; for (const w of d.walls) g.fillRect(w.x * s, w.y * s, w.w * s, w.h * s);
+  g.fillStyle = '#3d2f3f'; for (const p of d.pits) { g.beginPath(); g.arc(p.x * s, p.y * s, p.r * s, 0, 6.283); g.fill(); }
+  for (const q of d.goals) { g.fillStyle = COL[q.c]; g.beginPath(); g.arc(q.x * s, q.y * s, GOAL_R * 1.1 * s, 0, 6.283); g.fill(); g.fillStyle = '#3a2a33'; g.beginPath(); g.arc(q.x * s, q.y * s, GOAL_R * 0.85 * s, 0, 6.283); g.fill(); }
+  for (const b of d.balls) { g.fillStyle = COL[b.c]; g.beginPath(); g.arc(b.x * s, b.y * s, BALL_R * 1.3 * s, 0, 6.283); g.fill(); }
+}
+function renderMine() {
+  const box = document.getElementById('mList'); box.innerHTML = '';
+  if (!mine.length) { const p = document.createElement('p'); p.className = 'note'; p.textContent = 'Aún no tienes niveles. Crea uno nuevo o añade un código.'; box.appendChild(p); return; }
+  for (const e of mine) {
+    const it = document.createElement('div'); it.className = 'item';
+    const cvs = document.createElement('canvas'); cvs.width = 112; cvs.height = 168; drawThumb(cvs, e.def);
+    const side = document.createElement('div'), nm = document.createElement('b'); nm.textContent = e.name; side.appendChild(nm);
+    if (e.verified) { const k = document.createElement('span'); k.className = 'chk'; k.textContent = '  ✓ verificado'; nm.appendChild(k); }
+    const row = document.createElement('div'); row.className = 'mini';
+    const mk = (t, fn) => { const b = document.createElement('button'); b.textContent = t; b.onclick = fn; row.appendChild(b); return b; };
+    mk('Jugar', () => playCustom(e, false)); mk('Editar', () => enterEdit(e)); mk('Compartir', () => shareEntry(e));
+    const del = mk('Borrar', () => {
+      if (del.dataset.arm) { mine.splice(mine.indexOf(e), 1); persist(); renderMine(); return; }
+      del.dataset.arm = '1'; del.textContent = '¿Seguro?';
+      setTimeout(() => { if (del.isConnected) { del.dataset.arm = ''; del.textContent = 'Borrar'; } }, 3000);
+    });
+    side.appendChild(row); it.appendChild(cvs); it.appendChild(side); box.appendChild(it);
+  }
+}
+
+/* Edición: tocar coloca, arrastrar mueve, la herramienta Pared dibuja arrastrando */
+function setMode(m) { mode = m; document.body.classList.toggle('edit', m === 'edit'); resize(); }
+function setTool(t) { ed.tool = t; document.querySelectorAll('.tool').forEach(b => b.classList.toggle('on', b.dataset.tool === t)); }
+function syncEdit() {
+  const d = ed.entry.def;
+  lv = { d, started: false, time: 0, touches: 0, path: 0, state: 'edit', wait: 0, attempts: 0 };
+  balls = d.balls.map((b, i) => ({ i, x: b.x, y: b.y, vx: 0, vy: 0, c: b.c, agil: b.agil || 1, st: 'play', t: 0, sq: 0, blink: 2 + i, cd: 0 }));
+}
+function edDirty() { ed.entry.verified = false; clearTimeout(ed.t); ed.t = setTimeout(persist, 400); syncEdit(); }
+function enterEdit(entry) {
+  closeMine(); parts = []; fingers.clear(); document.getElementById('win').hidden = true;
+  ed = { entry, tool: 'ball_sol', drag: null, wall: null, pid: null, t: 0 }; cur = { kind: 'edit', entry };
+  setMode('edit'); document.getElementById('eName').value = entry.name; setTool('ball_sol'); syncEdit();
+}
+function exitEdit() { clearTimeout(ed.t); persist(); setMode('play'); ed = null; loadLevel(li); openMine(); }
+function hitPiece(d, x, y) {
+  for (let i = d.balls.length - 1; i >= 0; i--) if (Math.hypot(d.balls[i].x - x, d.balls[i].y - y) < BALL_R + 0.25) return ['balls', i];
+  for (let i = d.goals.length - 1; i >= 0; i--) if (Math.hypot(d.goals[i].x - x, d.goals[i].y - y) < GOAL_R * 0.9) return ['goals', i];
+  for (let i = d.pits.length - 1; i >= 0; i--) if (Math.hypot(d.pits[i].x - x, d.pits[i].y - y) < PIT_R + 0.1) return ['pits', i];
+  for (let i = d.walls.length - 1; i >= 0; i--) { const w = d.walls[i]; if (x > w.x - 0.25 && x < w.x + w.w + 0.25 && y > w.y - 0.25 && y < w.y + w.h + 0.25) return ['walls', i]; }
+  return null;
+}
+function wallFrom(x0, y0, x1, y1) {
+  const dx = x1 - x0, dy = y1 - y0; let hz = Math.abs(dx) >= Math.abs(dy), len, x = x0, y = y0;
+  if (Math.hypot(dx, dy) < 0.5) { hz = true; len = 2; }
+  else { len = Math.max(1, snap(Math.abs(hz ? dx : dy))); if (hz && dx < 0) x = x0 - len; if (!hz && dy < 0) y = y0 - len; }
+  len = Math.min(len, hz ? W : H);
+  return hz ? { x: clamp(snap(x), 0, W - len), y: clamp(snap(y), 0, H - WALL_T), w: len, h: WALL_T }
+            : { x: clamp(snap(x), 0, W - WALL_T), y: clamp(snap(y), 0, H - len), w: WALL_T, h: len };
+}
+function edPos(e) { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left - ox) / sc, (e.clientY - r.top - oy) / sc]; }
+function full(nm, n) { toast('No caben más ' + nm + ' (máximo ' + n + ').'); return null; }
+function place(tool, x, y) {
+  const d = ed.entry.def, sx = clamp(snap(x), 0.5, W - 0.5), sy = clamp(snap(y), 0.5, H - 0.5);
+  if (tool.startsWith('ball_')) { if (d.balls.length >= LIM.balls) return full('bolas', LIM.balls); const c = tool === 'ball_rosa' ? 'rosa' : 'sol'; d.balls.push({ x: sx, y: sy, c, agil: c === 'rosa' ? 0.7 : 1 }); return ['balls', d.balls.length - 1]; }
+  if (tool.startsWith('goal_')) { if (d.goals.length >= LIM.goals) return full('metas', LIM.goals); d.goals.push({ x: sx, y: sy, c: tool === 'goal_rosa' ? 'rosa' : 'sol' }); return ['goals', d.goals.length - 1]; }
+  if (tool === 'pit') { if (d.pits.length >= LIM.pits) return full('pozos', LIM.pits); d.pits.push({ x: sx, y: sy, r: PIT_R }); return ['pits', d.pits.length - 1]; }
+  return null;
+}
+function edDown(e) {
+  const [x, y] = edPos(e); if (x < -0.3 || x > W + 0.3 || y < -0.3 || y > H + 0.3 || ed.pid !== null) return;
+  cv.setPointerCapture(e.pointerId); ed.pid = e.pointerId; initAudio();
+  const d = ed.entry.def, hp = hitPiece(d, x, y);
+  if (ed.tool === 'erase') { if (hp) { d[hp[0]].splice(hp[1], 1); edDirty(); slide(300, 160, 0.1, 0.08); } return; }
+  const startDrag = k => ({ k: k[0], i: k[1], ox: x, oy: y, st: JSON.parse(JSON.stringify(d[k[0]][k[1]])) });
+  if (hp) { ed.drag = startDrag(hp); return; }
+  if (ed.tool === 'wall') { if (d.walls.length >= LIM.walls) { full('paredes', LIM.walls); return; } ed.wall = { x0: snap(x), y0: snap(y), x1: x, y1: y }; return; }
+  const p = place(ed.tool, x, y); if (p) { ed.drag = startDrag(p); edDirty(); note(3 + Math.floor(Math.random() * 3), 0.1, 0.1, 'triangle'); }
+}
+function edMove(e) {
+  if (ed.pid !== e.pointerId) return; const [x, y] = edPos(e);
+  if (ed.wall) { ed.wall.x1 = x; ed.wall.y1 = y; return; }
+  if (!ed.drag) return;
+  const k = ed.drag, it = ed.entry.def[k.k][k.i]; if (!it) return;
+  const dx = x - k.ox, dy = y - k.oy;
+  if (k.k === 'walls') { it.x = clamp(snap(k.st.x + dx), 0, W - it.w); it.y = clamp(snap(k.st.y + dy), 0, H - it.h); }
+  else { it.x = clamp(snap(k.st.x + dx), 0.5, W - 0.5); it.y = clamp(snap(k.st.y + dy), 0.5, H - 0.5); }
+  edDirty();
+}
+function edUp(e) {
+  if (ed.pid !== e.pointerId) return;
+  if (ed.wall) { const w = ed.wall; ed.entry.def.walls.push(wallFrom(w.x0, w.y0, w.x1, w.y1)); ed.wall = null; edDirty(); note(1, 0.1, 0.1, 'triangle'); }
+  ed.drag = null; ed.pid = null;
+}
+function drawGrid() {
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  for (let i = 1; i < W; i++) for (let j = 1; j < H; j++) { ctx.beginPath(); ctx.arc(ox + i * sc, oy + j * sc, 1.6, 0, 6.283); ctx.fill(); }
+}
+function drawEdOverlay() {
+  if (ed && ed.wall) {
+    const w = wallFrom(ed.wall.x0, ed.wall.y0, ed.wall.x1, ed.wall.y1);
+    ctx.globalAlpha = 0.6; ctx.fillStyle = '#F2877B'; rr(ox + w.x * sc, oy + w.y * sc, w.w * sc, w.h * sc, Math.min(w.w, w.h) * sc / 2.2); ctx.fill(); ctx.globalAlpha = 1;
+  }
+  if (ed && ed.drag) {
+    const it = ed.entry.def[ed.drag.k][ed.drag.i]; if (!it) return;
+    const cx = it.w ? it.x + it.w / 2 : it.x, cy = it.h ? it.y + it.h / 2 : it.y;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.arc(ox + cx * sc, oy + cy * sc, (it.w ? Math.max(it.w, it.h) / 2 + 0.4 : 0.95) * sc, 0, 6.283); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+const armed = {};
+function twoTap(key, msg, fn) { if (armed[key]) { clearTimeout(armed[key]); armed[key] = 0; fn(); } else { toast(msg); armed[key] = setTimeout(() => { armed[key] = 0; }, 2600); } }
+document.querySelectorAll('.tool').forEach(b => { b.onclick = () => { if (ed) setTool(b.dataset.tool); }; });
+document.getElementById('create').onclick = () => { if (cur.kind === 'custom' && cur.test) enterEdit(cur.entry); else openMine(); };
+document.getElementById('mNew').onclick = () => enterEdit(newEntry());
+document.getElementById('mClose').onclick = closeMine;
+document.getElementById('mAdd').onclick = () => {
+  const inp = document.getElementById('mCode');
+  try { const o = decodeLevel(inp.value); addImported(o.d, o.verified, 'Nivel de un amigo'); inp.value = ''; renderMine(); toast('Nivel añadido.'); } catch (e) { toast(e.message); }
+};
+document.getElementById('codeOk').onclick = () => { document.getElementById('codeDlg').hidden = true; };
+document.getElementById('eBack').onclick = exitEdit;
+document.getElementById('eName').oninput = e => { ed.entry.name = e.target.value.trim().slice(0, 16) || 'Mi nivel'; clearTimeout(ed.t); ed.t = setTimeout(persist, 400); };
+document.getElementById('eClear').onclick = () => twoTap('clear', 'Toca otra vez para vaciar el nivel.', () => { const d = ed.entry.def; d.balls = []; d.goals = []; d.walls = []; d.pits = []; edDirty(); });
+document.getElementById('eShare').onclick = () => shareEntry(ed.entry);
+document.getElementById('eTest').onclick = () => { const msg = validate(ed.entry.def); if (msg) { toast(msg); return; } persist(); playCustom(ed.entry, true); };
+
+/* gancho para pruebas automáticas */
+window.__t = { P, get lv() { return lv; }, get balls() { return balls; }, get li() { return li; }, loadLevel, simStep, fingers, LEVELS, W, H,
+  ed: { encodeLevel, decodeLevel, validate, newEntry, enterEdit, playCustom, importHash, mine: () => mine, get cur() { return cur; }, get mode() { return mode; }, get entry() { return ed && ed.entry; }, LIM } };
+
+resize(); restoreMine(); if (!importHash()) loadLevel(0); requestAnimationFrame(frame);
 })();
 </script>
 </body>
