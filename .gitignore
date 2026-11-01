@@ -1,0 +1,147 @@
+# ============================================================
+# .gitignore
+# El repositorio puede volverse público. Este archivo cubre secretos,
+# llaves de firma, archivos locales y los motores/herramientas candidatos
+# (aún no se decidió cuál se usará). Recortar cuando se decida el motor.
+# ============================================================
+
+# ---------- Secretos y credenciales (NUNCA versionar) ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+secrets.*
+*secret*.json
+*credentials*.json
+service-account*.json
+google-services.json
+GoogleService-Info.plist
+*.mobileprovision
+*.p8
+id_rsa
+id_ed25519
+*.gpg
+
+# ---------- Configuración local de herramientas ----------
+.claude/settings.local.json
+.claude/*.local.*
+local.properties
+*.local
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.iml
+*.code-workspace
+
+# ---------- Sistema operativo ----------
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+*.swp
+*.swo
+
+# ---------- Registros, temporales, volcados ----------
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+*.rej
+hs_err_pid*
+*.hprof
+*.dmp
+
+# ---------- Android / Gradle / Kotlin ----------
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+proguard/
+output-metadata.json
+
+# ---------- Godot 4 ----------
+.godot/
+.import/
+*.translation
+export.cfg
+export_credentials.cfg
+export_presets.cfg
+android/build/
+*.tmp.tscn
+
+# ---------- Unity ----------
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emory[Cc]aptures/
+*.csproj
+*.sln
+*.pidb
+*.unityproj
+*.suo
+*.pdb
+*.mdb
+sysinfo.txt
+Assembly-CSharp*.csproj
+
+# ---------- Web / Node (prototipos en HTML y JS) ----------
+node_modules/
+dist/
+.cache/
+.parcel-cache/
+.next/
+.vite/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+*.tsbuildinfo
+
+# ---------- Python (herramientas auxiliares) ----------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# ---------- Activos pesados o de terceros ----------
+# Fuentes de arte y audio sin exportar: guardar fuera del repositorio
+# o en Git LFS si se decide versionarlas. Los exportados finales sí van.
+*.psd
+*.kra~
+*.blend1
+*.blend2
+*.aseprite~
+*.wav.asd
+*.reapeaks
+*.rpp-bak
+# Activos comprados o con licencia no redistribuible:
+assets-licenciados/
+assets-privados/

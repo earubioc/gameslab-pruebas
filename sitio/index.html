@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pruebas de mecánica</title>
+<style>
+@font-face{font-family:'Fredoka';font-style:normal;font-weight:300 700;font-display:swap;src:url(fonts/fredoka-latin.woff2) format('woff2');}
+/* Inicio de las pruebas. Dos botones grandes de fieltro sobre fondo crema, pensados para el pulgar. */
+:root{
+  --crema:#F6E9CF;
+  --crema-oscuro:#E7D3AA;
+  --tinta:#4A3B47;
+  --coral:#F2877B;
+  --menta:#7CCDB9;
+  --lila:#9FA8F0;
+  --display:'Fredoka',ui-rounded,'Hiragino Maru Gothic ProN','Segoe UI Rounded',system-ui,sans-serif;
+  color-scheme: light;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--crema);color:var(--tinta);font-family:var(--display)}
+main{min-height:100%;display:flex;flex-direction:column;justify-content:center;gap:18px;max-width:440px;margin:0 auto;padding:24px 18px}
+h1{margin:0;font-size:30px;font-weight:600;text-wrap:balance}
+p.lead{margin:0 0 6px;font-size:16px;line-height:1.35;opacity:.8}
+a.card{display:block;text-decoration:none;color:#fff;border-radius:26px;padding:20px 20px 18px;
+  box-shadow:0 6px 0 rgba(0,0,0,.18);transition:transform .08s,box-shadow .08s}
+a.card:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.18)}
+a.card:focus-visible{outline:3px solid var(--tinta);outline-offset:3px}
+a.card b{display:block;font-size:26px;font-weight:600}
+a.card span{display:block;margin-top:4px;font-size:15px;line-height:1.3;opacity:.95}
+a.a{background:#4FAE98}
+a.b{background:#7F89E0}
+small{opacity:.65;font-size:13px;line-height:1.35}
+</style>
+</head>
+<body>
+<main>
+  <h1>Pruebas de mecánica</h1>
+  <p class="lead">Dos ideas para un juego móvil. Juega las dos y fíjate en cuál te dan ganas de repetir.</p>
+  <a class="card a" href="membrana.html"><b>Membrana</b><span>Hunde la tela con el dedo y la bola rueda hacia el hundimiento. 5 niveles.</span></a>
+  <a class="card b" href="hilos.html"><b>Hilos</b><span>Corta los hilos en el momento justo. Si se estiran de más, revientan. 4 niveles.</span></a>
+  <small>Prototipos sin equilibrar. No hay cuentas ni seguimiento: los ajustes se guardan solo en tu navegador.</small>
+</main>
+</body>
+</html>
