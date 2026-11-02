@@ -118,7 +118,7 @@ body.edit #pal{display:flex}
   </div>
   <div class="grp">
     <button class="btn" id="eClear" aria-label="Vaciar el nivel"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button>
-    <button class="btn" id="eShare" aria-label="Compartir código"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 11l8-4M8 13l8 4"/></svg></button>
+    <button class="btn" id="eShare" aria-label="Compartir código (solo si el nivel está verificado)"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 11l8-4M8 13l8 4"/></svg></button>
     <button class="pill" id="eTest" style="flex:none;padding:0 14px;height:40px;background:var(--coral);color:#fff;box-shadow:0 3px 0 #C9665B;font-weight:600">Probar</button>
   </div>
 </div>
@@ -433,10 +433,11 @@ function statsText() {
 function showWin() {
   const cu = cur.kind === 'custom', last = !cu && li === LEVELS.length - 1;
   winKind = cu ? (cur.test ? 'test' : 'custom') : 'std';
-  if (winKind === 'test') { cur.entry.verified = true; persist(); }
+  const fresh = cu && !cur.entry.verified;
+  if (cu) { cur.entry.verified = true; persist(); }
   const nm = cu ? '"' + cur.entry.name + '"' : 'Nivel ' + (li + 1);
-  document.getElementById('winT').textContent = winKind === 'test' ? '¡Nivel verificado!' : last ? '¡Completado!' : '¡Listo!';
-  document.getElementById('winS').textContent = winKind === 'test' ? 'Se puede ganar. Ya puedes compartir el código.' : lv.attempts ? nm + ' en ' + (lv.attempts + 1) + ' intentos' : nm + ' a la primera';
+  document.getElementById('winT').textContent = fresh ? '¡Nivel verificado!' : last ? '¡Completado!' : '¡Listo!';
+  document.getElementById('winS').textContent = fresh ? 'Se puede ganar. Ya puedes compartirlo.' : lv.attempts ? nm + ' en ' + (lv.attempts + 1) + ' intentos' : nm + ' a la primera';
   document.getElementById('sT').textContent = lv.time.toFixed(1).replace('.', ',');
   document.getElementById('sD').textContent = lv.touches;
   document.getElementById('sP').textContent = (lv.path / H).toFixed(1).replace('.', ',');
@@ -707,6 +708,7 @@ function importHash() {
 }
 window.addEventListener('hashchange', importHash);
 async function shareEntry(entry) {
+  if (!entry.verified) { toast('Para compartirlo, primero tienes que ganarlo tú. Toca Probar.'); return; }
   const code = encodeLevel(entry.def, entry.verified);
   const okHost = /(^|\.)github\.io$/.test(location.hostname) || location.hostname === 'localhost';
   const link = okHost ? location.origin + location.pathname + '#' + code : '';
@@ -735,7 +737,8 @@ function renderMine() {
     if (e.verified) { const k = document.createElement('span'); k.className = 'chk'; k.textContent = '  ✓ verificado'; nm.appendChild(k); }
     const row = document.createElement('div'); row.className = 'mini';
     const mk = (t, fn) => { const b = document.createElement('button'); b.textContent = t; b.onclick = fn; row.appendChild(b); return b; };
-    mk('Jugar', () => playCustom(e, false)); mk('Editar', () => enterEdit(e)); mk('Compartir', () => shareEntry(e));
+    mk('Jugar', () => playCustom(e, false)); mk('Editar', () => enterEdit(e));
+    if (e.verified) mk('Compartir', () => shareEntry(e)); else mk('Verificar', () => playCustom(e, true));
     const del = mk('Borrar', () => {
       if (del.dataset.arm) { mine.splice(mine.indexOf(e), 1); persist(); renderMine(); return; }
       del.dataset.arm = '1'; del.textContent = '¿Seguro?';
@@ -752,6 +755,7 @@ function syncEdit() {
   const d = ed.entry.def;
   lv = { d, started: false, time: 0, touches: 0, path: 0, state: 'edit', wait: 0, attempts: 0 };
   balls = d.balls.map((b, i) => ({ i, x: b.x, y: b.y, vx: 0, vy: 0, c: b.c, agil: b.agil || 1, st: 'play', t: 0, sq: 0, blink: 2 + i, cd: 0 }));
+  document.getElementById('eShare').classList.toggle('off', !ed.entry.verified);
 }
 function edDirty() { ed.entry.verified = false; clearTimeout(ed.t); ed.t = setTimeout(persist, 400); syncEdit(); }
 function enterEdit(entry) {
