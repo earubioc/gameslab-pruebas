@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Cubo Cebolla</title>
+<style>
+@font-face{font-family:'Fredoka';font-style:normal;font-weight:300 700;font-display:swap;src:url(fonts/fredoka-latin.woff2) format('woff2');}
+</style>
+<style>
+/* Prototipo C: el cubo en capas. Tres mecánicas (tela cenital, cuerdas con trampolín, puzle de colores) en un recorrido infinito.
+   Composición: menú con cubo de fieltro, tablero vertical, barra superior de botones de fieltro, transición de cubo en 3D. */
+:root{
+  --crema:#F6E9CF; --crema-oscuro:#E7D3AA; --tinta:#4A3B47; --coral:#F2877B; --sol:#FFD166; --menta:#7CCDB9; --lila:#9FA8F0;
+  --c1:#F5A25D; --c2:#6FB3F2; --c3:#FFD166;
+  --display:'Fredoka',ui-rounded,'Hiragino Maru Gothic ProN','Segoe UI Rounded',system-ui,sans-serif;
+  color-scheme: light;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--crema);color:var(--tinta);font-family:var(--display);overscroll-behavior:none;overflow:hidden;user-select:none;-webkit-user-select:none}
+#stage{position:fixed;inset:0}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+button{font:inherit;color:inherit;border:0;cursor:pointer}
+.bar{position:fixed;left:0;right:0;top:0;height:56px;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;gap:6px;pointer-events:none}
+.bar[hidden]{display:none}
+.grp{display:flex;align-items:center;gap:6px;pointer-events:auto}
+.btn{width:40px;height:40px;border-radius:13px;background:var(--crema-oscuro);display:grid;place-items:center;box-shadow:0 3px 0 #CDB787, inset 0 1px 0 rgba(255,255,255,.55);transition:transform .08s,box-shadow .08s}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #CDB787, inset 0 1px 0 rgba(255,255,255,.55)}
+.btn:focus-visible,.pill:focus-visible,.cta:focus-visible,.menu button:focus-visible,.tab:focus-visible,.item:focus-visible{outline:3px solid var(--coral);outline-offset:2px}
+.btn svg{width:22px;height:22px;stroke:var(--tinta);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.lvl{max-width:150px;text-align:left;font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{height:40px;padding:0 12px;border-radius:13px;background:#fff8e8;display:flex;align-items:center;gap:4px;font-weight:600;font-size:17px;box-shadow:0 3px 0 #CDB787;font-variant-numeric:tabular-nums}
+.badge i{font-style:normal;color:#E8A317}
+.hint{position:fixed;left:50%;top:60px;transform:translateX(-50%);max-width:min(94vw,460px);text-align:center;background:rgba(74,59,71,.92);color:#fff;padding:9px 16px;border-radius:999px;font-size:15px;line-height:1.25;pointer-events:none;transition:opacity .35s;z-index:3}
+.hint.gone{opacity:0}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);max-width:min(92vw,420px);background:rgba(74,59,71,.95);color:#fff;padding:10px 16px;border-radius:16px;font-size:14px;line-height:1.3;text-align:center;z-index:30;pointer-events:none}
+.toast[hidden]{display:none}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(74,59,71,.38);padding:16px;z-index:12}
+.overlay[hidden]{display:none}
+.card{width:min(92vw,340px);background:var(--crema);border-radius:26px;padding:22px 20px 18px;text-align:center;box-shadow:0 8px 0 #CDB787,0 18px 40px rgba(0,0,0,.25);animation:pop .28s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.card h2{margin:0 0 4px;font-size:28px;font-weight:600}
+.card .sub{margin:0 0 10px;opacity:.75;font-size:15px}
+.starsRow{display:flex;justify-content:center;gap:6px;margin:4px 0 8px;font-size:44px;line-height:1}
+.starsRow span{color:#E3D3B0;display:inline-block;transition:transform .3s}
+.starsRow span.on{color:#F2B21B;text-shadow:0 3px 0 #C98A0A;animation:starpop .5s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes starpop{from{transform:scale(0) rotate(-40deg)}to{transform:scale(1) rotate(0)}}
+.crit{list-style:none;margin:0 0 12px;padding:0;text-align:left;font-size:15px}
+.crit li{display:flex;justify-content:space-between;padding:5px 10px;background:#fff8e8;border-radius:10px;margin-bottom:5px}
+.crit li.no{opacity:.55}
+.cta{display:block;width:100%;padding:13px;border-radius:16px;background:var(--coral);color:#fff;font-size:19px;font-weight:600;box-shadow:0 4px 0 #C9665B;margin-bottom:10px}
+.cta:active{transform:translateY(2px);box-shadow:0 2px 0 #C9665B}
+.row{display:flex;gap:8px}
+.pill{flex:1;padding:10px;border-radius:14px;background:var(--crema-oscuro);font-size:15px;font-weight:500;box-shadow:0 3px 0 #CDB787}
+.pill:active{transform:translateY(2px);box-shadow:0 1px 0 #CDB787}
+.pill.on{background:var(--lila);color:#fff;box-shadow:0 3px 0 #7983D6}
+.panel{position:fixed;left:0;right:0;bottom:0;background:var(--crema);border-radius:24px 24px 0 0;padding:16px 18px 20px;box-shadow:0 -8px 30px rgba(0,0,0,.25);max-height:78%;overflow:auto;z-index:14}
+.panel[hidden]{display:none}
+.panel h3{margin:0 0 6px;font-size:20px}
+.panel p.note{margin:0 0 10px;font-size:13px;opacity:.7;line-height:1.3}
+.ctl{display:grid;grid-template-columns:1fr 54px;gap:2px 10px;align-items:center;margin-bottom:8px}
+.ctl output{font-variant-numeric:tabular-nums;text-align:right;font-size:14px;opacity:.8}
+.ctl input{grid-column:1 / -1;width:100%;accent-color:var(--coral);height:28px}
+/* menú */
+.screen{position:fixed;inset:0;background:var(--crema);z-index:10;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:20px 18px 24px}
+.screen[hidden]{display:none}
+.logo{height:150px;display:grid;place-items:center;perspective:700px;margin-top:6px}
+.lcube{width:96px;height:96px;position:relative;transform-style:preserve-3d;animation:spin 16s linear infinite}
+@keyframes spin{from{transform:rotateX(-24deg) rotateY(25deg)}to{transform:rotateX(-24deg) rotateY(385deg)}}
+.lf{position:absolute;inset:0;border-radius:10px;border:3px dashed rgba(255,255,255,.7);box-shadow:inset 0 0 0 4px rgba(0,0,0,.06)}
+.lf.a{background:var(--c1);transform:translateZ(48px)}
+.lf.b{background:var(--c2);transform:rotateY(90deg) translateZ(48px)}
+.lf.c{background:var(--c3);transform:rotateY(180deg) translateZ(48px)}
+.lf.d{background:var(--c2);transform:rotateY(-90deg) translateZ(48px)}
+.lf.e{background:var(--c3);transform:rotateX(90deg) translateZ(48px)}
+.lf.f{background:var(--c1);transform:rotateX(-90deg) translateZ(48px)}
+.lf::after{content:"";position:absolute;inset:14px;border:4px solid rgba(255,255,255,.55);border-radius:6px;clip-path:polygon(0 0,70% 0,70% 30%,40% 30%,40% 70%,100% 70%,100% 100%,0 100%)}
+.screen h1{margin:4px 0 0;font-size:34px;font-weight:600;letter-spacing:.3px}
+.screen .tag{margin:2px 0 14px;font-size:14px;opacity:.7;text-align:center}
+.menu{width:min(100%,380px);display:flex;flex-direction:column;gap:10px}
+.menu button{width:100%;padding:13px 16px;border-radius:18px;background:var(--crema-oscuro);font-size:19px;font-weight:600;box-shadow:0 4px 0 #CDB787;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.menu button small{font-size:13px;font-weight:400;opacity:.75;text-align:right}
+.menu button.main{background:var(--coral);color:#fff;box-shadow:0 5px 0 #C9665B;padding:16px}
+.menu button:active{transform:translateY(2px)}
+.menu .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.menu .two button{flex-direction:column;align-items:flex-start;font-size:17px}
+/* colección */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0}
+.tab{padding:8px 12px;border-radius:12px;background:var(--crema-oscuro);font-size:14px;font-weight:500;box-shadow:0 2px 0 #CDB787}
+.tab.on{background:var(--lila);color:#fff}
+.grid{width:min(100%,400px);display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.item{background:#fff8e8;border-radius:16px;padding:10px 8px;text-align:center;box-shadow:0 3px 0 #E0CFA8}
+.item canvas{width:64px;height:64px}
+.item b{display:block;font-size:15px;margin-top:2px}
+.item span{display:block;font-size:13px;opacity:.8;margin-top:2px}
+.item.eq{outline:3px solid var(--menta)}
+.item.lock{opacity:.9}
+/* cubo 3D de transición */
+#cubeStage{position:fixed;inset:0;z-index:20;background:var(--crema);perspective:1100px;overflow:hidden}
+#cubeStage[hidden]{display:none}
+.cwrap{position:absolute;inset:0;display:grid;place-items:center;transform-style:preserve-3d}
+#cube,#shell{position:absolute;left:50%;top:50%;transform-style:preserve-3d}
+.face{position:absolute;inset:0;background-size:cover;background-position:center;border-radius:14px;border:3px dashed rgba(255,255,255,.65);backface-visibility:hidden}
+.sface{position:absolute;inset:0;border-radius:16px;border:4px dashed rgba(255,255,255,.7);opacity:.96}
+#door{position:fixed;inset:0;z-index:18;display:grid;place-items:center;background:rgba(74,59,71,.25)}
+#door[hidden]{display:none}
+.dframe{position:relative;width:min(70vw,260px);height:min(46vh,340px);overflow:hidden;border-radius:18px;background:radial-gradient(circle,#FFF6CF,#FFD166);box-shadow:0 8px 0 #CDB787,0 18px 40px rgba(0,0,0,.3)}
+.dframe i{position:absolute;top:0;bottom:0;width:50%;background:var(--c1);border:4px dashed rgba(255,255,255,.7);transition:transform .9s cubic-bezier(.5,0,.2,1)}
+.dframe i.l{left:0}.dframe i.r{right:0;background:var(--c2)}
+.dframe.open i.l{transform:translateX(-102%)}.dframe.open i.r{transform:translateX(102%)}
+.dframe b{position:absolute;inset:0;display:grid;place-items:center;font-size:26px;font-weight:600;text-align:center;padding:0 12px}
+#pzbar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;justify-content:center;align-items:center;padding:8px 12px 14px;background:linear-gradient(transparent,var(--crema) 40%)}
+#pzbar[hidden]{display:none}
+#pzbar .pill{flex:none;padding:10px 16px}
+#pzcount{font-weight:600;font-size:17px;min-width:92px;text-align:center}
+@media (prefers-reduced-motion:reduce){.card,.starsRow span.on{animation:none}.lcube{animation:none;transform:rotateX(-24deg) rotateY(25deg)}.hint{transition:none}}
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv" aria-label="Tablero del juego"></canvas></div>
+
+<div class="bar" id="bar" hidden>
+  <div class="grp">
+    <button class="btn" id="back" aria-label="Volver al menú"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="lvl" id="lbl"></div>
+  </div>
+  <div class="grp">
+    <div class="badge" id="starsB" aria-label="Estrellas"><i>★</i><span id="starsN">0</span></div>
+    <button class="btn" id="restart" aria-label="Reiniciar"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/></svg></button>
+    <button class="btn" id="cfg" aria-label="Ajustes"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
+  </div>
+</div>
+<div class="hint gone" id="hint"></div>
+<div id="pzbar" hidden><button class="pill" id="pzHint">Pista</button><div id="pzcount"></div><button class="pill" id="pzClear">Limpiar</button></div>
+<div class="toast" id="toast" hidden></div>
+
+<div class="screen" id="hub">
+  <div class="logo"><div class="lcube"><div class="lf a"></div><div class="lf b"></div><div class="lf c"></div><div class="lf d"></div><div class="lf e"></div><div class="lf f"></div></div></div>
+  <h1>Cubo Cebolla</h1>
+  <p class="tag">Nombre de trabajo. Un cubo con capas dentro de capas.</p>
+  <div class="menu">
+    <button class="main" id="mCubo"><span>Jugar el Cubo</span><small id="mCuboS">Capa 1</small></button>
+    <div class="two">
+      <button id="mMem"><span>Membrana</span><small id="mMemS">Nivel 1</small></button>
+      <button id="mRope"><span>Cuerdas</span><small id="mRopeS">Sala 1</small></button>
+    </div>
+    <div class="two">
+      <button id="mCol"><span>Colores</span><small id="mColS">Práctica</small></button>
+      <button id="mShop"><span>Colección</span><small id="mShopS">0 estrellas</small></button>
+    </div>
+    <button id="mEdit"><span>Crear niveles</span><small>editor de Membrana</small></button>
+    <button id="mCfg"><span>Ajustes</span><small>sonido y control</small></button>
+  </div>
+</div>
+
+<div class="screen" id="shop" hidden>
+  <div class="row" style="width:min(100%,400px);align-items:center;margin-bottom:4px"><button class="btn" id="shopBack" aria-label="Volver"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><h1 style="font-size:26px;margin:0 auto">Colección</h1><div class="badge"><i>★</i><span id="shopStars">0</span></div></div>
+  <p class="tag">Las estrellas no se compran ni se pierden: se ganan jugando.</p>
+  <div class="tabs" id="tabs"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="overlay" id="win" hidden>
+  <div class="card" role="dialog" aria-labelledby="winT">
+    <h2 id="winT">¡Listo!</h2>
+    <p class="sub" id="winS"></p>
+    <div class="starsRow" id="winStars"></div>
+    <ul class="crit" id="winCrit"></ul>
+    <button class="cta" id="winCta">Continuar</button>
+    <div class="row"><button class="pill" id="winRetry">Repetir</button><button class="pill" id="winMenu">Menú</button></div>
+  </div>
+</div>
+
+<div class="panel" id="panel" hidden>
+  <h3>Ajustes</h3>
+  <div class="row" style="margin-bottom:8px"><button class="pill" id="optSnd">Sonido: sí</button></div>
+  <p class="note">Control de la tela en las salas de cuerdas. Directo: la tela se hunde donde tocas y la bola sale hacia ese lado. Tirachinas: la tela se hunde en el lado contrario al que arrastras.</p>
+  <div class="row" style="margin-bottom:10px"><button class="pill" id="aimD">Directo</button><button class="pill" id="aimT">Tirachinas</button></div>
+  <div class="ctl"><label for="offR">Desfase del dedo en Membrana (px)</label><output id="offO"></output><input id="offR" type="range" min="0" max="100" step="2"></div>
+  <div class="row" style="margin-bottom:8px"><button class="pill" id="optReset">Borrar progreso</button><button class="pill" id="optClose">Cerrar</button></div>
+</div>
+
+<div id="door" hidden><div class="dframe" id="dframe"><b id="doorT">Puerta cerrada</b><i class="l"></i><i class="r"></i></div></div>
+
+<div id="cubeStage" hidden>
+  <div class="cwrap">
+    <div id="cube"></div>
+    <div id="shell"></div>
+  </div>
+</div>
+
+<script>
+/* Puzle de colores: una pieza por región, por fila y por columna, sin tocarse ni en diagonal.
+   Núcleo sin DOM: se usa en el juego y en las pruebas de Node. El género es conocido (Star Battle, Queens); las reglas son libres. */
+(function (root) {
+'use strict';
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function shuffle(a, rnd) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+/* Una colocación válida: una por fila y por columna, sin tocarse en diagonal. Devuelve la columna de cada fila. */
+function randomPlacement(N, rnd) {
+  const cols = new Array(N).fill(-1), used = new Array(N).fill(false);
+  function go(r) {
+    if (r === N) return true;
+    for (const c of shuffle([...Array(N).keys()], rnd)) {
+      if (used[c] || (r > 0 && Math.abs(c - cols[r - 1]) <= 1)) continue;
+      cols[r] = c; used[c] = true;
+      if (go(r + 1)) return true;
+      used[c] = false; cols[r] = -1;
+    }
+    return false;
+  }
+  return go(0) ? cols : null;
+}
+
+/* Reparte el tablero en N regiones conexas, cada una con exactamente una celda de la solución. */
+function growRegions(N, sol, rnd) {
+  const reg = Array.from({ length: N }, () => new Array(N).fill(-1));
+  sol.forEach((c, r) => { reg[r][c] = r; });
+  let remaining = N * N - N;
+  const D = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  while (remaining > 0) {
+    const pairs = [];
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      if (reg[r][c] < 0) continue;
+      for (const [dr, dc] of D) { const rr = r + dr, cc = c + dc; if (rr >= 0 && rr < N && cc >= 0 && cc < N && reg[rr][cc] < 0) pairs.push([rr, cc, reg[r][c]]); }
+    }
+    const [r, c, g] = pairs[Math.floor(rnd() * pairs.length)];
+    reg[r][c] = g; remaining--;
+  }
+  return reg;
+}
+
+/* Cuenta soluciones (hasta `limit`) y las devuelve. */
+function solutions(N, reg, limit) {
+  const out = [], cols = new Array(N).fill(-1), colUsed = new Array(N).fill(false), regUsed = new Array(N).fill(false);
+  function go(r) {
+    if (out.length >= limit) return;
+    if (r === N) { out.push(cols.slice()); return; }
+    for (let c = 0; c < N; c++) {
+      if (colUsed[c]) continue;
+      const g = reg[r][c]; if (regUsed[g]) continue;
+      if (r > 0 && Math.abs(c - cols[r - 1]) <= 1) continue;
+      colUsed[c] = regUsed[g] = true; cols[r] = c;
+      go(r + 1);
+      colUsed[c] = regUsed[g] = false; cols[r] = -1;
+    }
+  }
+  go(0);
+  return out;
+}
+
+/* ¿La región g sigue siendo conexa si se le quita la celda (r0, c0)? */
+function connectedWithout(N, reg, g, r0, c0) {
+  const cells = []; for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (reg[r][c] === g && !(r === r0 && c === c0)) cells.push([r, c]);
+  if (!cells.length) return false;
+  const seen = new Set([cells[0][0] * N + cells[0][1]]), q = [cells[0]];
+  while (q.length) { const [r, c] = q.pop(); for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const rr = r + dr, cc = c + dc; if (rr >= 0 && rr < N && cc >= 0 && cc < N && reg[rr][cc] === g && !(rr === r0 && cc === c0) && !seen.has(rr * N + cc)) { seen.add(rr * N + cc); q.push([rr, cc]); } } }
+  return seen.size === cells.length;
+}
+
+/* Reparación local: mueve celdas de frontera entre regiones (sin tocar las de la solución) hasta que quede una sola solución. */
+function repair(N, reg, sol, rnd, moves) {
+  const isSol = (r, c) => sol[r] === c;
+  let count = solutions(N, reg, 2).length;
+  for (let m = 0; m < moves && count > 1; m++) {
+    const r = Math.floor(rnd() * N), c = Math.floor(rnd() * N); if (isSol(r, c)) continue;
+    const old = reg[r][c], nb = [];
+    for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const rr = r + dr, cc = c + dc; if (rr >= 0 && rr < N && cc >= 0 && cc < N && reg[rr][cc] !== old) nb.push(reg[rr][cc]); }
+    if (!nb.length || !connectedWithout(N, reg, old, r, c)) continue;
+    reg[r][c] = nb[Math.floor(rnd() * nb.length)];
+    const n = solutions(N, reg, 2).length;
+    if (n <= count && n >= 1) count = n; else reg[r][c] = old;
+  }
+  return count === 1;
+}
+
+/* Puzle con solución única. Determinista según la semilla. */
+function genPuzzle(N, seed) {
+  const rnd = mulberry32((seed * 2654435761 + N * 97) >>> 0);
+  for (let attempt = 1; attempt <= 3000; attempt++) {
+    const sol = randomPlacement(N, rnd); if (!sol) continue;
+    const reg = growRegions(N, sol, rnd);
+    if (solutions(N, reg, 2).length === 1 || repair(N, reg, sol, rnd, 80)) return { N, reg, sol, seed, attempts: attempt };
+  }
+  return null;
+}
+
+/* Piezas colocadas: lista de [fila, columna]. Devuelve los índices de las piezas que chocan con otra. */
+function conflicts(reg, pieces) {
+  const bad = new Set();
+  for (let i = 0; i < pieces.length; i++) for (let j = i + 1; j < pieces.length; j++) {
+    const [r1, c1] = pieces[i], [r2, c2] = pieces[j];
+    if (r1 === r2 || c1 === c2 || reg[r1][c1] === reg[r2][c2] || (Math.abs(r1 - r2) <= 1 && Math.abs(c1 - c2) <= 1)) { bad.add(i); bad.add(j); }
+  }
+  return bad;
+}
+
+/* Dificultad por capa: tamaño del tablero. */
+function sizeForLayer(layer) { return Math.min(8, 4 + Math.floor((layer - 1) / 2)); }
+
+const api = { mulberry32, genPuzzle, solutions, conflicts, sizeForLayer };
+root.Colores = api;
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* Membrana (vista cenital): tela elástica que se hunde con el dedo, la bola rueda hacia el hundimiento.
+   Núcleo sin DOM: simulación, niveles de aprendizaje y generador de salas con camino garantizado. */
+(function (root) {
+'use strict';
+const W = 10, H = 15, CELL = 0.25, NX = Math.round(W / CELL) + 1, NY = Math.round(H / CELL) + 1;
+const DT = 1 / 120, BALL_R = 0.46, GOAL_R = 0.78, COUPLE = 200, DAMP = 8;
+const DEFAULT_P = { depth: 1.0, radius: 1.4, fric: 1.5, g: 26, stiff: 120 };
+
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------- Simulación ---------- */
+function MemSim(def, P, onEvent) {
+  this.P = Object.assign({}, DEFAULT_P, P || {}); this.def = def; this.ev = onEvent || function () {};
+  this.h = new Float32Array(NX * NY); this.v = new Float32Array(NX * NY); this.tgt = new Float32Array(NX * NY);
+  this.box = null; this.fingers = new Map(); this.time = 0; this.started = false; this.state = 'play'; this.wonAt = 0;
+  this.balls = def.balls.map((b, i) => ({ i, x: b.x, y: b.y, vx: 0, vy: 0, c: b.c, agil: b.agil || 1, st: 'play', t: 0, sq: 0, sqx: 0, sqy: 0, cd: 0, goal: null }));
+}
+MemSim.prototype.setTargets = function () {
+  const { tgt, P } = this;
+  if (this.box) { const b = this.box; for (let j = b.j0; j <= b.j1; j++) for (let i = b.i0; i <= b.i1; i++) tgt[j * NX + i] = 0; this.box = null; }
+  const sg = P.radius * 0.55, reach = sg * 3.2;
+  for (const f of this.fingers.values()) {
+    const i0 = Math.max(1, Math.floor((f.x - reach) / CELL)), i1 = Math.min(NX - 2, Math.ceil((f.x + reach) / CELL));
+    const j0 = Math.max(1, Math.floor((f.y - reach) / CELL)), j1 = Math.min(NY - 2, Math.ceil((f.y + reach) / CELL));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const dx = i * CELL - f.x, dy = j * CELL - f.y; tgt[j * NX + i] -= P.depth * f.env * Math.exp(-(dx * dx + dy * dy) / (2 * sg * sg)); }
+    const b = this.box; this.box = b ? { i0: Math.min(b.i0, i0), i1: Math.max(b.i1, i1), j0: Math.min(b.j0, j0), j1: Math.max(b.j1, j1) } : { i0, i1, j0, j1 };
+  }
+};
+MemSim.prototype.stepSurface = function () {
+  const { h, v, tgt } = this, k = this.P.stiff;
+  for (let j = 1; j < NY - 1; j++) for (let i = 1; i < NX - 1; i++) { const n = j * NX + i; v[n] += (k * (tgt[n] - h[n]) + COUPLE * (h[n - 1] + h[n + 1] + h[n - NX] + h[n + NX] - 4 * h[n]) - DAMP * v[n]) * DT; }
+  for (let n = 0; n < h.length; n++) h[n] += v[n] * DT;
+};
+MemSim.prototype.grad = function (x, y) {
+  const h = this.h, fx = Math.min(Math.max(x / CELL, 0), NX - 1.001), fy = Math.min(Math.max(y / CELL, 0), NY - 1.001);
+  const i = Math.floor(fx), j = Math.floor(fy), tx = fx - i, ty = fy - j, n = j * NX + i;
+  const h00 = h[n], h10 = h[n + 1], h01 = h[n + NX], h11 = h[n + NX + 1];
+  return [((h10 - h00) * (1 - ty) + (h11 - h01) * ty) / CELL, ((h01 - h00) * (1 - tx) + (h11 - h10) * tx) / CELL];
+};
+MemSim.prototype.bump = function (b, sp, nx, ny) {
+  if (b.cd > 0 || sp < 2.2) return;
+  b.cd = 0.08; b.sq = Math.min(1, sp / 10); b.sqx = nx; b.sqy = ny; this.ev('bump', { sp, b });
+};
+MemSim.prototype.stepBalls = function () {
+  const d = this.def, P = this.P;
+  for (const b of this.balls) {
+    if (b.cd > 0) b.cd -= DT;
+    if (b.st === 'in') { b.t += DT; const g = b.goal; b.x += (g.x - b.x) * Math.min(1, DT * 14); b.y += (g.y - b.y) * Math.min(1, DT * 14); continue; }
+    if (b.st === 'fell') { b.t += DT; b.vx *= 0.9; b.vy *= 0.9; continue; }
+    const [gx, gy] = this.grad(b.x, b.y);
+    let ax = -P.g * b.agil * gx - P.fric * b.vx, ay = -P.g * b.agil * gy - P.fric * b.vy;
+    for (const g of d.goals) {
+      if (g.c !== b.c) continue;
+      const dx = g.x - b.x, dy = g.y - b.y, dd = Math.hypot(dx, dy);
+      if (dd < GOAL_R * 1.4) { const w = 1 - dd / (GOAL_R * 1.4); ax += dx * 26 * w; ay += dy * 26 * w; ax -= b.vx * 3 * w; ay -= b.vy * 3 * w; }
+    }
+    b.vx += ax * DT; b.vy += ay * DT;
+    const sp = Math.hypot(b.vx, b.vy); if (sp > 18) { b.vx *= 18 / sp; b.vy *= 18 / sp; }
+    b.x += b.vx * DT; b.y += b.vy * DT;
+    if (b.x < BALL_R) { b.x = BALL_R; if (b.vx < 0) { this.bump(b, -b.vx, 1, 0); b.vx *= -0.5; } }
+    if (b.x > W - BALL_R) { b.x = W - BALL_R; if (b.vx > 0) { this.bump(b, b.vx, -1, 0); b.vx *= -0.5; } }
+    if (b.y < BALL_R) { b.y = BALL_R; if (b.vy < 0) { this.bump(b, -b.vy, 0, 1); b.vy *= -0.5; } }
+    if (b.y > H - BALL_R) { b.y = H - BALL_R; if (b.vy > 0) { this.bump(b, b.vy, 0, -1); b.vy *= -0.5; } }
+    for (const w of d.walls) {
+      const cx = Math.max(w.x, Math.min(b.x, w.x + w.w)), cy = Math.max(w.y, Math.min(b.y, w.y + w.h));
+      let dx = b.x - cx, dy = b.y - cy, dd = Math.hypot(dx, dy);
+      if (dd < BALL_R) {
+        if (dd < 1e-6) { dx = 0; dy = -1; dd = 1; }
+        const nx = dx / dd, ny = dy / dd; b.x = cx + nx * BALL_R; b.y = cy + ny * BALL_R;
+        const vn = b.vx * nx + b.vy * ny; if (vn < 0) { this.bump(b, -vn, nx, ny); b.vx -= 1.55 * vn * nx; b.vy -= 1.55 * vn * ny; }
+      }
+    }
+    for (const o of this.balls) {
+      if (o.i <= b.i || o.st !== 'play') continue;
+      const dx = o.x - b.x, dy = o.y - b.y, dd = Math.hypot(dx, dy);
+      if (dd < BALL_R * 2 && dd > 1e-6) {
+        const nx = dx / dd, ny = dy / dd, ov = BALL_R * 2 - dd; b.x -= nx * ov / 2; b.y -= ny * ov / 2; o.x += nx * ov / 2; o.y += ny * ov / 2;
+        const rel = (o.vx - b.vx) * nx + (o.vy - b.vy) * ny;
+        if (rel < 0) { b.vx += rel * nx * 0.9; b.vy += rel * ny * 0.9; o.vx -= rel * nx * 0.9; o.vy -= rel * ny * 0.9; this.bump(b, -rel, -nx, -ny); }
+      }
+    }
+    for (const g of d.goals) { if (g.c !== b.c) continue; if (Math.hypot(g.x - b.x, g.y - b.y) < 0.46 && Math.hypot(b.vx, b.vy) < 8) { b.st = 'in'; b.goal = g; b.t = 0; this.ev('goal', { b }); } }
+    for (const p of d.pits) { if (Math.hypot(p.x - b.x, p.y - b.y) < p.r * 0.62) { b.st = 'fell'; b.t = 0; this.ev('fall', { b }); } }
+  }
+};
+MemSim.prototype.step = function () {
+  for (const f of this.fingers.values()) f.env += (1 - f.env) * Math.min(1, DT * 20);
+  this.setTargets(); this.stepSurface(); this.stepBalls();
+  if (this.started && this.state === 'play') this.time += DT;
+  if (this.state === 'play') {
+    if (this.balls.every(b => b.st === 'in' && b.t > 0.35)) { this.state = 'won'; this.wonAt = this.time; this.ev('win', {}); }
+    else if (this.balls.some(b => b.st === 'fell' && b.t > 0.55)) { this.state = 'dead'; this.ev('dead', {}); }
+  }
+};
+
+/* ---------- Niveles de aprendizaje (los 8 del prototipo Membrana) con su ruta de referencia ---------- */
+const TUTORIAL = [
+  { hint: 'Arrastra para hundir la tela. La bola rueda hacia el hundimiento.', balls: [{ x: 5, y: 12.6, c: 'sol' }], goals: [{ x: 5, y: 2.6, c: 'sol' }], walls: [], pits: [], route: [[[5, 2.6]]] },
+  { hint: 'La pared no se cruza. Rodéala por el hueco.', balls: [{ x: 2.2, y: 12.6, c: 'sol' }], goals: [{ x: 2.2, y: 2.6, c: 'sol' }], walls: [{ x: 0, y: 7.2, w: 6.6, h: 0.6 }], pits: [], route: [[[5, 9.5], [8.3, 7.5], [5, 4.5], [2.2, 2.6]]] },
+  { hint: 'Dos paredes, dos giros.', balls: [{ x: 2, y: 13, c: 'sol' }], goals: [{ x: 2, y: 2.2, c: 'sol' }], walls: [{ x: 0, y: 10, w: 6.8, h: 0.6 }, { x: 3.2, y: 5.4, w: 6.8, h: 0.6 }], pits: [], route: [[[5, 12], [8.4, 10.3], [8.4, 8], [1.6, 7.5], [1.6, 5.7], [2, 2.2]]] },
+  { hint: 'Cada bola va a su agujero. La rosa es más pesada.', balls: [{ x: 3, y: 12.8, c: 'sol' }, { x: 7, y: 12.8, c: 'rosa', agil: 0.7 }], goals: [{ x: 7, y: 2.4, c: 'sol' }, { x: 3, y: 2.4, c: 'rosa' }], walls: [{ x: 4.5, y: 6.2, w: 1, h: 2.8 }], pits: [], route: [[[3, 9], [3, 4], [7, 2.4]], [[7, 9], [7, 4], [3, 2.4]]] },
+  { hint: 'Los pozos oscuros se la tragan. Evítalos.', balls: [{ x: 5, y: 13, c: 'sol' }], goals: [{ x: 5, y: 2.2, c: 'sol' }], walls: [], pits: [{ x: 5, y: 10, r: 0.7 }, { x: 2.6, y: 7, r: 0.8 }, { x: 7.4, y: 7, r: 0.8 }, { x: 5, y: 4.6, r: 0.7 }], route: [[[3.6, 11.5], [5, 8.2], [6.6, 5.4], [5, 3], [5, 2.2]]] },
+  { hint: 'Tres curvas estrechas. Ve despacio.', balls: [{ x: 2.5, y: 13.2, c: 'sol' }], goals: [{ x: 3, y: 2.2, c: 'sol' }], walls: [{ x: 0, y: 10.4, w: 8, h: 0.6 }, { x: 2, y: 7.2, w: 8, h: 0.6 }, { x: 0, y: 4, w: 8, h: 0.6 }], pits: [], route: [[[9, 12], [9, 9.2], [1, 8.8], [1, 5.8], [9, 5.8], [9, 3.2], [3, 2.2]]] },
+  { hint: 'Esta bola es ligera: responde mucho y se pasa de largo.', balls: [{ x: 5, y: 13, c: 'sol', agil: 1.8 }], goals: [{ x: 5, y: 2.2, c: 'sol' }], walls: [], pits: [{ x: 3.3, y: 10.6, r: 0.8 }, { x: 6.7, y: 10.6, r: 0.8 }, { x: 5, y: 8.2, r: 0.8 }, { x: 2, y: 7, r: 0.8 }, { x: 8, y: 7, r: 0.8 }, { x: 3.4, y: 4.6, r: 0.8 }, { x: 6.6, y: 4.6, r: 0.8 }], route: [[[5, 11.4], [4.2, 9.8], [3.4, 8.4], [3.4, 6.4], [5, 5.8], [5, 3.6], [5, 2.2]]], bot: { lead: 0.7, adv: 0.7 } },
+  { hint: 'Dos bolas, pozos y un poste. Piensa en el orden.', balls: [{ x: 3, y: 12.8, c: 'sol' }, { x: 7, y: 12.8, c: 'rosa', agil: 0.7 }], goals: [{ x: 7, y: 2.4, c: 'sol' }, { x: 3, y: 2.4, c: 'rosa' }], walls: [{ x: 4.5, y: 6.2, w: 1, h: 2.8 }], pits: [{ x: 5, y: 10.8, r: 0.7 }, { x: 5, y: 4.2, r: 0.7 }], route: [[[3, 9], [3, 3.6], [7, 2.4]], [[7, 9], [7, 5], [6.6, 2.3], [3, 2.2]]] }
+];
+
+/* ---------- Geometría auxiliar ---------- */
+function distSeg(px, py, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1e-9; let u = ((px - a[0]) * dx + (py - a[1]) * dy) / l2; u = Math.max(0, Math.min(1, u)); return Math.hypot(a[0] + u * dx - px, a[1] + u * dy - py); }
+function distPoly(px, py, poly) { let m = 1e9; for (let i = 0; i < poly.length - 1; i++) m = Math.min(m, distSeg(px, py, poly[i], poly[i + 1])); return m; }
+function distRect(px, py, w) { return Math.hypot(px - Math.max(w.x, Math.min(px, w.x + w.w)), py - Math.max(w.y, Math.min(py, w.y + w.h))); }
+function polyLen(poly) { let l = 0; for (let i = 0; i < poly.length - 1; i++) l += Math.hypot(poly[i + 1][0] - poly[i][0], poly[i + 1][1] - poly[i][1]); return l; }
+
+/* ---------- Generador de salas: filas de paredes con un hueco cada una, pozos lejos del camino ---------- */
+function genRoom(layer, seed) {
+  const rnd = mulberry32((seed * 7919 + layer * 104729) >>> 0), rr = (a, b) => a + rnd() * (b - a);
+  const rows = Math.min(4, 1 + Math.floor((layer - 1) / 2)), gw = Math.max(1.9, 3.4 - 0.12 * layer);
+  const agil = layer >= 4 && rnd() < 0.4 ? 1 + Math.min(0.7, 0.1 * (layer - 3)) : 1;
+  const start = [rr(1.5, 8.5), rr(13.0, 13.9)], goal = [rr(1.5, 8.5), rr(2.0, 2.8)];
+  const walls = [], path = [start], ys = [], gaps = [];
+  for (let k = 0; k < rows; k++) ys.push(11.4 - k * (7.6 / rows) + rr(-0.15, 0.15));   // pasillos de al menos 1,35 entre filas
+  for (let k = 0; k < rows; k++) {
+    let g = rr(gw / 2 + 0.6, W - gw / 2 - 0.6);
+    for (let t = 0; t < 30 && gaps.length && Math.abs(g - gaps[gaps.length - 1]) < 3; t++) g = rr(gw / 2 + 0.6, W - gw / 2 - 0.6);
+    gaps.push(g);
+    if (g - gw / 2 > 0.05) walls.push({ x: 0, y: ys[k], w: g - gw / 2, h: 0.6 });
+    if (W - (g + gw / 2) > 0.05) walls.push({ x: g + gw / 2, y: ys[k], w: W - (g + gw / 2), h: 0.6 });
+    path.push([g, ys[k] + 1.3], [g, ys[k] - 0.7]);
+  }
+  path.push(goal);
+  const pits = [], pitN = Math.min(8, Math.floor(layer * 0.9));
+  const free = (x, y, r) => distPoly(x, y, path) > 1.7 && walls.every(w => distRect(x, y, w) > r + 0.5) && Math.hypot(x - start[0], y - start[1]) > 1.8 && Math.hypot(x - goal[0], y - goal[1]) > 1.8 && pits.every(p => Math.hypot(x - p.x, y - p.y) > 1.5 + (r + p.r) / 2);
+  for (let t = 0; t < 400 && pits.length < pitN; t++) { const r = rr(0.7, 0.8), x = rr(r + 0.2, W - r - 0.2), y = rr(r + 1, H - r - 1); if (free(x, y, r)) pits.push({ x, y, r }); }
+  if (layer >= 3 && rnd() < 0.5) {
+    const h = rr(1.8, 2.6);
+    for (let t = 0; t < 100; t++) { const x = rr(0.5, W - 1.1), y = rr(3.5, 11.5), w = { x, y, w: 0.6, h }; if (Math.hypot(x + 0.3 - start[0], y + h / 2 - start[1]) > 2.6 && Math.hypot(x + 0.3 - goal[0], y + h / 2 - goal[1]) > 2.0 && y + h < 11.4 && distPoly(x + 0.3, y + h / 2, path) > 1.7 && distPoly(x + 0.3, y, path) > 1.5 && distPoly(x + 0.3, y + h, path) > 1.5 && pits.every(p => distRect(p.x, p.y, w) > p.r + 0.6)) { walls.push(w); break; } }
+  }
+  const def = { balls: [{ x: start[0], y: start[1], c: 'sol', agil }], goals: [{ x: goal[0], y: goal[1], c: 'sol' }], walls, pits };
+  const len = polyLen(path);
+  return Object.assign(def, { route: [path.slice(1)], pathLen: len, bot: agil > 1.2 ? { lead: 0.7, adv: 0.7 } : undefined });
+}
+
+/* Sala comprobada con el robot: si no se gana, se regenera con otra semilla derivada. */
+function genRoomVerified(layer, seed) {
+  for (let k = 0; k < 12; k++) { const room = genRoom(layer, seed * 131 + k); const r = runBot(room); if (r.state === 'won') { room.verifiedBy = { time: r.time, trazo: r.trazo, tries: k + 1 }; return room; } }
+  return genRoom(layer, seed);
+}
+
+/* ---------- Referencias de trazo (par) ---------- */
+function routeLength(def) { let l = 0; def.route.forEach((r, i) => { const b = def.balls[i]; l += polyLen([[b.x, b.y]].concat(r)); }); return l; }
+function parTrazo(def) { return +(1.6 * (def.pathLen || routeLength(def))).toFixed(1); }
+
+/* ---------- Robot de prueba: arrastra el hundimiento un poco por delante de la bola ---------- */
+function runBot(def, opts) {
+  opts = opts || {}; const sim = new MemSim(def, opts.P), lead = (def.bot && def.bot.lead) || opts.lead || 1.3, adv = (def.bot && def.bot.adv) || opts.adv || 0.9;
+  sim.started = true; let steps = 0, wi = 0, last = 0, trazo = 0, lx = null, ly = null; const maxSteps = (opts.maxSeconds || 60) * 120;
+  const segs = def.route;
+  while (steps < maxSteps && sim.state === 'play') {
+    const ball = sim.balls.find(b => b.st === 'play'); if (!ball) { sim.step(); steps++; continue; }
+    const si = Math.min(ball.i, segs.length - 1), seg = segs[si];
+    if (si !== last) { wi = 0; last = si; }
+    const t = seg[Math.min(wi, seg.length - 1)], d = Math.hypot(t[0] - ball.x, t[1] - ball.y);
+    if (d < adv && wi < seg.length - 1) wi++;
+    const l = Math.min(lead, d), fx = ball.x + (t[0] - ball.x) / (d || 1) * l, fy = ball.y + (t[1] - ball.y) / (d || 1) * l;
+    if (lx !== null) trazo += Math.hypot(fx - lx, fy - ly); lx = fx; ly = fy;
+    sim.fingers.set(1, { x: fx, y: fy, env: 1 }); sim.step(); steps++;
+  }
+  return { state: sim.state, time: sim.time, trazo, steps };
+}
+
+const api = { W, H, CELL, NX, NY, DT, BALL_R, GOAL_R, DEFAULT_P, MemSim, TUTORIAL, genRoom, genRoomVerified, parTrazo, routeLength, runBot, mulberry32 };
+root.MembranaCore = api;
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* Cuerdas y trampolín (vista lateral): una bola de lana cuelga de hilos que se cortan con el dedo y cae sobre una tela elástica
+   en el suelo; si se tira de la tela hacia abajo y se suelta, la bola sale lanzada. Hay gravedad (a veces inclinada).
+   Núcleo sin DOM: simulación, buscador de soluciones y muestreo de salas. */
+(function (root) {
+'use strict';
+const W = 10, H = 15, DT = 1 / 240, CORE_R = 0.5, GOAL_R = 0.8;
+const DEF = { g: 22, k: 90, tmax: 45, tk: 140, ts: 220, tc: 6, e: 0.5, sigma: 0.9 };
+
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+function RopeSim(room, P, onEvent) {
+  this.room = room; this.P = Object.assign({}, DEF, P || {}); this.ev = onEvent || null;
+  const cl = room.cloth; this.M = Math.round((cl.x1 - cl.x0) / 0.25); this.sp = (cl.x1 - cl.x0) / this.M;
+  this.d = new Float32Array(this.M + 1); this.dv = new Float32Array(this.M + 1);
+  const g = room.g || [0, 1], gn = Math.hypot(g[0], g[1]) || 1; this.gx = g[0] / gn; this.gy = g[1] / gn;
+  this.core = { x: room.core[0], y: room.core[1], vx: 0, vy: 0, st: 'play', t: 0, sq: 0, sqx: 0, sqy: 1, stress: 0 };
+  this.threads = room.anchors.map((a, i) => ({ ax: a[0], ay: a[1], L: Math.hypot(a[0] - room.core[0], a[1] - room.core[1]), alive: true, T: 0, idx: i }));
+  this.pull = null; this.time = 0; this.state = 'play'; this.stats = { cuts: 0, pulls: 0, snaps: 0 }; this.hitCd = 0; this.bounceCd = 0;
+}
+RopeSim.prototype.emit = function (t, d) { if (this.ev) this.ev(t, d || {}); };
+RopeSim.prototype.clone = function () {
+  const s = Object.create(RopeSim.prototype);
+  s.room = this.room; s.P = this.P; s.ev = null; s.M = this.M; s.sp = this.sp; s.d = this.d.slice(); s.dv = this.dv.slice(); s.gx = this.gx; s.gy = this.gy;
+  s.core = Object.assign({}, this.core); s.threads = this.threads.map(t => Object.assign({}, t)); s.pull = this.pull ? Object.assign({}, this.pull) : null;
+  s.time = this.time; s.state = this.state; s.stats = Object.assign({}, this.stats); s.hitCd = this.hitCd; s.bounceCd = this.bounceCd; return s;
+};
+/* Acciones del jugador */
+RopeSim.prototype.cut = function (i) { const t = this.threads[i]; if (!t || !t.alive || this.core.st !== 'play') return false; t.alive = false; this.stats.cuts++; this.emit('cut', { t, cx: this.core.x, cy: this.core.y }); return true; };
+RopeSim.prototype.setPull = function (x, depth) { if (!this.pull) { this.pull = { x, depth, env: 0 }; this.stats.pulls++; } else { this.pull.x = x; this.pull.depth = depth; } };
+RopeSim.prototype.releasePull = function () { if (this.pull) { this.emit('release', { x: this.pull.x, depth: this.pull.depth }); this.pull = null; } };
+RopeSim.prototype.nearestThread = function (x, y, tol) {
+  let best = -1, bd = 1e9; const c = this.core;
+  for (const t of this.threads) { if (!t.alive) continue;
+    const dx = c.x - t.ax, dy = c.y - t.ay, l2 = dx * dx + dy * dy || 1e-6; let u = clamp(((x - t.ax) * dx + (y - t.ay) * dy) / l2, 0, 1);
+    const dd = Math.hypot(t.ax + u * dx - x, t.ay + u * dy - y); if (dd < tol && dd < bd) { bd = dd; best = t.idx; } }
+  return best;
+};
+
+RopeSim.prototype.step = function () {
+  const P = this.P, c = this.core, cl = this.room.cloth, d = this.d, dv = this.dv, M = this.M, sp = this.sp, pl = this.pull;
+  this.time += DT; if (this.hitCd > 0) this.hitCd -= DT; if (this.bounceCd > 0) this.bounceCd -= DT;
+  /* tela */
+  if (pl) pl.env += (1 - pl.env) * Math.min(1, DT * 25);
+  const s2 = 2 * P.sigma * P.sigma;
+  for (let i = 1; i < M; i++) {
+    const tg = pl ? pl.depth * pl.env * Math.exp(-((cl.x0 + i * sp - pl.x) * (cl.x0 + i * sp - pl.x)) / s2) : 0;
+    dv[i] += (P.tk * (tg - d[i]) + P.ts * (d[i - 1] + d[i + 1] - 2 * d[i]) - P.tc * dv[i]) * DT;
+  }
+  for (let i = 1; i < M; i++) d[i] += dv[i] * DT;
+  /* bola */
+  if (c.st === 'in') { c.t += DT; const g = this.room.goal; c.x += (g[0] - c.x) * Math.min(1, DT * 14); c.y += (g[1] - c.y) * Math.min(1, DT * 14); }
+  else if (c.st === 'dead') { c.t += DT; }
+  else {
+    let fx = P.g * this.gx - 0.35 * c.vx, fy = P.g * this.gy - 0.35 * c.vy, maxS = 0;
+    for (const t of this.threads) {
+      if (!t.alive) continue;
+      const dx = t.ax - c.x, dy = t.ay - c.y, dd = Math.hypot(dx, dy) || 1e-6, T = Math.max(0, P.k * (dd - t.L)); t.T = T;
+      if (T > P.tmax) { t.alive = false; this.stats.snaps++; this.emit('snap', { t, cx: c.x, cy: c.y }); continue; }
+      maxS = Math.max(maxS, T / P.tmax); fx += T * dx / dd; fy += T * dy / dd;
+    }
+    c.stress = maxS;
+    { const g = this.room.goal, dx = g[0] - c.x, dy = g[1] - c.y, dd = Math.hypot(dx, dy), reach = GOAL_R * 1.5;
+      if (dd < reach) { const w = 1 - dd / reach; fx += dx * 30 * w - c.vx * 3 * w; fy += dy * 30 * w - c.vy * 3 * w; } }
+    c.vx += fx * DT; c.vy += fy * DT;
+    const spd = Math.hypot(c.vx, c.vy); if (spd > 30) { c.vx *= 30 / spd; c.vy *= 30 / spd; }
+    c.x += c.vx * DT; c.y += c.vy * DT;
+    const hit = (s, nx, ny) => { if (s < 3 || this.hitCd > 0) return; this.hitCd = 0.1; c.sq = Math.min(1, s / 12); c.sqx = nx; c.sqy = ny; this.emit('bump', { s }); };
+    if (c.x < CORE_R) { c.x = CORE_R; if (c.vx < 0) { hit(-c.vx, 1, 0); c.vx *= -0.4; } }
+    if (c.x > W - CORE_R) { c.x = W - CORE_R; if (c.vx > 0) { hit(c.vx, -1, 0); c.vx *= -0.4; } }
+    if (c.y < CORE_R) { c.y = CORE_R; if (c.vy < 0) { hit(-c.vy, 0, 1); c.vy *= -0.4; } }
+    if (c.y > H - CORE_R) { c.y = H - CORE_R; if (c.vy > 0) { hit(c.vy, 0, -1); c.vy *= -0.4; } }
+    /* apoyos sólidos */
+    for (const w of this.room.solids) {
+      const cx = clamp(c.x, w.x, w.x + w.w), cy = clamp(c.y, w.y, w.y + w.h); let dx = c.x - cx, dy = c.y - cy, dd = Math.hypot(dx, dy);
+      if (dd < CORE_R) {
+        if (dd < 1e-6) { dx = 0; dy = -1; dd = 1; }
+        const nx = dx / dd, ny = dy / dd; c.x = cx + nx * CORE_R; c.y = cy + ny * CORE_R;
+        const vn = c.vx * nx + c.vy * ny; if (vn < 0) { hit(-vn, nx, ny); c.vx -= 1.4 * vn * nx; c.vy -= 1.4 * vn * ny; }
+        if (Math.abs(ny) > 0.7) c.vx *= (1 - 1.5 * DT);
+      }
+    }
+    /* tela elástica: choque con la superficie y arrastre de su velocidad */
+    if (c.x > cl.x0 && c.x < cl.x1) {
+      const f = (c.x - cl.x0) / sp, i = Math.min(M - 1, Math.floor(f)), u = f - i;
+      const ys = cl.y + d[i] * (1 - u) + d[i + 1] * u, m = (d[i + 1] - d[i]) / sp, nr = Math.sqrt(1 + m * m), dist = (ys - c.y) / nr;
+      if (dist < CORE_R && dist > -CORE_R * 1.3) {
+        const nx = m / nr, ny = -1 / nr, pen = CORE_R - dist, vs = dv[i] * (1 - u) + dv[i + 1] * u;
+        c.x += nx * pen; c.y += ny * pen;
+        const vrx = c.vx, vry = c.vy - vs, vn = vrx * nx + vry * ny;
+        if (vn < 0) { c.vx -= (1 + P.e) * vn * nx; c.vy -= (1 + P.e) * vn * ny; if (-vn > 3 && this.bounceCd <= 0) { this.bounceCd = 0.12; c.sq = Math.min(1, -vn / 14); c.sqx = nx; c.sqy = ny; this.emit('bounce', { s: -vn }); } }
+        c.vx *= (1 - 0.6 * DT);
+      }
+    }
+    for (const s of this.room.spikes || []) if (c.x > s.x - 0.1 && c.x < s.x + s.w + 0.1 && c.y + CORE_R * 0.6 > s.y && c.y - CORE_R * 0.6 < s.y + s.h) { c.st = 'dead'; c.t = 0; this.emit('die', {}); break; }
+    { const g = this.room.goal; if (c.st === 'play' && Math.hypot(g[0] - c.x, g[1] - c.y) < 0.7) { c.st = 'in'; c.t = 0; for (const t of this.threads) t.alive = false; this.emit('goal', {}); } }
+  }
+  if (this.state === 'play') {
+    if (c.st === 'in' && c.t > 0.35) { this.state = 'won'; this.emit('win', {}); }
+    else if (c.st === 'dead' && c.t > 0.6) { this.state = 'dead'; this.emit('dead', {}); }
+  }
+};
+
+/* ---------- Buscador de soluciones ---------- */
+function advance(sim, dur) { const n = Math.round(dur / DT); for (let i = 0; i < n && sim.core.st === 'play'; i++) sim.step(); }
+function solveRoom(room, opts) {
+  const o = Object.assign({ maxDepth: 3, budget: 30000, T: 5.5, hold: 0.3, waits: [0, 0.2, 0.4, 0.7, 1.0], depths: [0.9, 1.4], xs: 6, maxSolutions: 12 }, opts || {});
+  const cl = room.cloth, xs = []; for (let i = 0; i < o.xs; i++) xs.push(+(cl.x0 + (cl.x1 - cl.x0) * (0.12 + 0.76 * i / (o.xs - 1))).toFixed(2));
+  let nodes = 0, sols = [];
+  function dfs(sim, depth, target, acts) {
+    for (const w of o.waits) {
+      if (nodes > o.budget || sols.length >= o.maxSolutions) return;
+      const s1 = sim.clone(); advance(s1, w); if (s1.core.st !== 'play') continue;
+      const options = []; for (const t of s1.threads) if (t.alive) options.push({ type: 'cut', i: t.idx });
+      for (const x of xs) for (const dp of o.depths) options.push({ type: 'pull', x, depth: dp });
+      for (const a of options) {
+        if (nodes > o.budget || sols.length >= o.maxSolutions) return;
+        nodes++; const s2 = s1.clone(), at = +s2.time.toFixed(3), rec = Object.assign({ t: at }, a);
+        if (a.type === 'cut') { s2.cut(a.i); advance(s2, 0.35); }
+        else { s2.setPull(a.x, a.depth); advance(s2, o.hold); rec.hold = o.hold; s2.releasePull(); advance(s2, 0.7); }
+        if (s2.core.st === 'dead') continue;
+        const nacts = acts.concat([rec]);
+        if (depth + 1 === target) { const s3 = s2.clone(); advance(s3, Math.max(0, o.T - s3.time)); if (s3.core.st === 'in') sols.push(nacts); }
+        else if (s2.core.st === 'play') dfs(s2, depth + 1, target, nacts);
+      }
+    }
+  }
+  const base = new RopeSim(room); let min = 0;
+  for (let D = 1; D <= o.maxDepth; D++) { nodes = 0; sols = []; dfs(base, 0, D, []); if (sols.length) { min = D; break; } if (D === 1 && false) break; }
+  return { solved: min > 0, min, solutions: sols, nodes };
+}
+/* Reproduce una lista de acciones en la simulación (para pruebas y para el robot del juego). */
+function replay(room, acts, T, P) {
+  const sim = new RopeSim(room, P); let i = 0, rel = null; const total = Math.round((T || 8) / DT);
+  for (let n = 0; n < total && sim.state === 'play'; n++) {
+    while (i < acts.length && sim.time >= acts[i].t - 1e-9) { const a = acts[i++]; if (a.type === 'cut') sim.cut(a.i); else { sim.setPull(a.x, a.depth); rel = sim.time + a.hold; } }
+    if (rel !== null && sim.time >= rel) { sim.releasePull(); rel = null; }
+    sim.step();
+  }
+  return { state: sim.state, stats: sim.stats, time: sim.time };
+}
+
+/* ---------- Muestreo de salas candidatas ---------- */
+function sampleRoom(rnd) {
+  const rr = (a, b) => a + rnd() * (b - a), yb = 13.4, wc = rr(4.2, 6.4), x0 = rr(0.8, W - wc - 0.8), x1 = x0 + wc, solids = [];
+  if (x0 > 0.05) solids.push({ x: 0, y: yb, w: x0, h: H - yb }); if (W - x1 > 0.05) solids.push({ x: x1, y: yb, w: W - x1, h: H - yb });
+  const left = rnd() < 0.5, lw = rr(2.2, 3.4), ly = rr(7.0, 10.2), lx = left ? 0 : W - lw;
+  solids.push({ x: lx, y: ly, w: lw, h: 0.6 });
+  const goal = [lx + lw / 2 + rr(-0.3, 0.3), ly - 0.9], spikes = [];
+  if (rnd() < 0.5) { const sw = rr(1.0, 1.8); spikes.push({ x: left ? lw + rr(0, 0.6) : W - lw - sw - rr(0, 0.6), y: yb - 0.7, w: sw, h: 0.7 }); }
+  if (rnd() < 0.35) solids.push(left ? { x: W - 2.2, y: rr(4.5, 7), w: 2.2, h: 0.6 } : { x: 0, y: rr(4.5, 7), w: 2.2, h: 0.6 });
+  const n = rnd() < 0.6 ? 1 : 2, cx = rr(x0 + 1, x1 - 1), L = rr(3.2, 6.5), anchors = [[clamp(cx + rr(-1.2, 1.2), 0.8, W - 0.8), 1.2]];
+  if (n === 2) anchors.push([clamp(cx + (rnd() < 0.5 ? -1 : 1) * rr(2, 3), 0.8, W - 0.8), rr(1.2, 2.2)]);
+  const core = [cx, Math.min(9.5, 1.2 + L)], tilt = rnd() < 0.3 ? (rnd() < 0.5 ? -0.25 : 0.25) : 0;
+  return { anchors, core, goal, cloth: { x0, x1, y: yb }, solids, spikes, g: [tilt, 1] };
+}
+/* Sala candidata sin solapes: la bola y los anclajes no nacen pegados a nada. */
+function sampleValid(rnd) {
+  for (let k = 0; k < 60; k++) {
+    const r = sampleRoom(rnd), near = (p, m) => r.solids.concat(r.spikes).some(b => p[0] > b.x - m && p[0] < b.x + b.w + m && p[1] > b.y - m && p[1] < b.y + b.h + m);
+    if (!near(r.core, 1.1) && r.anchors.every(a => !near(a, 0.4)) && !near(r.goal, 0.2) && Math.hypot(r.core[0] - r.goal[0], r.core[1] - r.goal[1]) > 3) return r;
+  }
+  return sampleRoom(rnd);
+}
+function mirror(room) {
+  const mx = x => +(W - x).toFixed(3), mr = r => ({ x: +(W - r.x - r.w).toFixed(3), y: r.y, w: r.w, h: r.h });
+  return { anchors: room.anchors.map(a => [mx(a[0]), a[1]]), core: [mx(room.core[0]), room.core[1]], goal: [mx(room.goal[0]), room.goal[1]], cloth: { x0: mx(room.cloth.x1), x1: mx(room.cloth.x0), y: room.cloth.y },
+    solids: room.solids.map(mr), spikes: (room.spikes || []).map(mr), g: [-(room.g ? room.g[0] : 0), room.g ? room.g[1] : 1] };
+}
+function mirrorActs(room, acts) { return acts.map(a => a.type === 'pull' ? Object.assign({}, a, { x: +(W - a.x).toFixed(3) }) : a); }
+
+const api = { W, H, DT, CORE_R, GOAL_R, RopeSim, solveRoom, replay, sampleRoom, sampleValid, mirror, mirrorActs, mulberry32 };
+root.CuerdasCore = api;
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+window.__POOL__ = [{"room":{"anchors":[[4.089968147624739,1.2]],"core":[4.641396025132843,5.4550194816896695],"goal":[8.470769660081716,7.761523879319428],"cloth":{"x0":2.0682318898205363,"x1":7.224445698718419,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.0682318898205363,"h":1.5999999999999996},{"x":7.224445698718419,"y":13.4,"w":2.7755543012815806,"h":1.5999999999999996},{"x":7.441524614207447,"y":8.661523879319429,"w":2.5584753857925535,"h":0.6}],"spikes":[{"x":5.587754063587636,"y":12.700000000000001,"w":1.5715932900086047,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":4.25,"depth":0.9,"hold":0.3}],"min":2,"nsol":12,"seed":101},{"room":{"anchors":[[3.677655171533077,1.2]],"core":[4.665265319612771,6.799663159321063],"goal":[8.478601244930179,8.648568599671124],"cloth":{"x0":0.8490798865591423,"x1":5.784597489578395,"y":13.4},"solids":[{"x":0,"y":13.4,"w":0.8490798865591423,"h":1.5999999999999996},{"x":5.784597489578395,"y":13.4,"w":4.215402510421605,"h":1.5999999999999996},{"x":6.989345672540367,"y":9.548568599671125,"w":3.0106543274596334,"h":0.6},{"x":0,"y":5.962955177994445,"w":2.2,"h":0.6}],"spikes":[{"x":5.2659636259544635,"y":12.700000000000001,"w":1.1315142834559082,"h":0.7}],"g":[0,1]},"acts":[{"t":0.2,"type":"cut","i":0},{"t":0.95,"type":"pull","x":3.69,"depth":1.4,"hold":0.3}],"min":2,"nsol":12,"seed":101},{"room":{"anchors":[[6.2426941374989235,1.2]],"core":[6.656409831412324,6.693665565433912],"goal":[1.574677860736847,8.712284556031227],"cloth":{"x0":2.2217487573385117,"x1":7.865011332486185,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.2217487573385117,"h":1.5999999999999996},{"x":7.865011332486185,"y":13.4,"w":2.1349886675138148,"h":1.5999999999999996},{"x":0,"y":9.612284556031227,"w":3.171622335538268,"h":0.6}],"spikes":[{"x":3.5555473754182456,"y":12.700000000000001,"w":1.0128227716311813,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":7.19,"depth":0.9,"hold":0.3}],"min":2,"nsol":12,"seed":101},{"room":{"anchors":[[6.191472750986501,1.2]],"core":[7.132521154815837,7.611873263074085],"goal":[1.3695686297956855,8.471127852797506],"cloth":{"x0":3.9208456384448187,"x1":8.468235880412333,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.9208456384448187,"h":1.5999999999999996},{"x":8.468235880412333,"y":13.4,"w":1.5317641195876668,"h":1.5999999999999996},{"x":0,"y":9.371127852797507,"w":3.011146201565862,"h":0.6}],"spikes":[{"x":3.1470888806041333,"y":12.700000000000001,"w":1.7719139475375414,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":6.54,"depth":0.9,"hold":0.3}],"min":2,"nsol":12,"seed":101},{"room":{"anchors":[[3.490794858760841,1.2]],"core":[3.0490393473354054,7.330785670480691],"goal":[8.633599676238372,8.801022681593894],"cloth":{"x0":1.0396190898147677,"x1":6.729911425116406,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.0396190898147677,"h":1.5999999999999996},{"x":6.729911425116406,"y":13.4,"w":3.2700885748835944,"h":1.5999999999999996},{"x":7.052777199447155,"y":9.701022681593894,"w":2.947222800552845,"h":0.6},{"x":0,"y":5.135609439923428,"w":2.2,"h":0.6}],"spikes":[{"x":5.19002823298797,"y":12.700000000000001,"w":1.3054342338815332,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":4.32,"depth":1.4,"hold":0.3}],"min":2,"nsol":12,"seed":101},{"room":{"anchors":[[4.78975037969259,1.2]],"core":[4.5276333784645555,5.991857316740789],"goal":[8.688219394395128,8.505922012031077],"cloth":{"x0":2.59076526390823,"x1":6.936019661673033,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.59076526390823,"h":1.5999999999999996},{"x":6.936019661673033,"y":13.4,"w":3.0639803383269673,"h":1.5999999999999996},{"x":7.38046322632581,"y":9.405922012031077,"w":2.61953677367419,"h":0.6},{"x":0,"y":6.519029054208659,"w":2.2,"h":0.6}],"spikes":[{"x":5.791450760234148,"y":12.700000000000001,"w":1.2431055057793856,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":3.77,"depth":0.9,"hold":0.3}],"min":2,"nsol":12,"seed":101},{"room":{"anchors":[[3.3787019027899245,1.2]],"core":[3.597423943927441,5.456188306026161],"goal":[9.109147153003141,8.608896017819642],"cloth":{"x0":0.9186973852930354,"x1":6.2343549275664385,"y":13.4},"solids":[{"x":0,"y":13.4,"w":0.9186973852930354,"h":1.5999999999999996},{"x":6.2343549275664385,"y":13.4,"w":3.7656450724335615,"h":1.5999999999999996},{"x":7.643946483917534,"y":9.508896017819643,"w":2.356053516082466,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":3.17,"depth":0.9,"hold":0.3}],"min":2,"nsol":12,"seed":202},{"room":{"anchors":[[5.747765621824036,1.2]],"core":[5.786662565452824,5.7078215316403655],"goal":[1.4724730158690362,7.284354268759488],"cloth":{"x0":1.6230334248416445,"x1":7.116898498919266,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.6230334248416445,"h":1.5999999999999996},{"x":7.116898498919266,"y":13.4,"w":2.883101501080734,"h":1.5999999999999996},{"x":0,"y":8.184354268759488,"w":2.706408588401973,"h":0.6}],"spikes":[{"x":2.9166901509743184,"y":12.700000000000001,"w":1.2110446931794285,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.55,"type":"pull","x":5.62,"depth":0.9,"hold":0.3}],"min":2,"nsol":12,"seed":202},{"room":{"anchors":[[2.9789143028606593,1.2]],"core":[3.4017015841727076,6.990915083722212],"goal":[8.724411178240551,8.618073263019323],"cloth":{"x0":1.7609564570371383,"x1":6.375743751706215,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.7609564570371383,"h":1.5999999999999996},{"x":6.375743751706215,"y":13.4,"w":3.6242562482937846,"h":1.5999999999999996},{"x":7.078108112700283,"y":9.518073263019323,"w":2.9218918872997164,"h":0.6},{"x":0,"y":5.848165184026584,"w":2.2,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.55,"type":"pull","x":5.12,"depth":0.9,"hold":0.3}],"min":2,"nsol":12,"seed":202},{"room":{"anchors":[[7.571747244700468,1.2]],"core":[7.2512107370343575,5.107568750274368],"goal":[1.586488791136071,8.130272620171308],"cloth":{"x0":3.038225517185908,"x1":9.06673720194636,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.038225517185908,"h":1.5999999999999996},{"x":9.06673720194636,"y":13.4,"w":0.9332627980536401,"h":1.5999999999999996},{"x":0,"y":9.030272620171308,"w":3.3723812007345257,"h":0.6}],"spikes":[{"x":3.780464166169986,"y":12.700000000000001,"w":1.271101644076407,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":7.43,"depth":1.4,"hold":0.3}],"min":2,"nsol":12,"seed":202},{"room":{"anchors":[[3.4751517178651694,1.2]],"core":[3.056601043247879,7.2928850393975155],"goal":[8.612727301521225,9.232831095159053],"cloth":{"x0":1.1871954437040297,"x1":5.432489082792079,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.1871954437040297,"h":1.5999999999999996},{"x":5.432489082792079,"y":13.4,"w":4.567510917207921,"h":1.5999999999999996},{"x":7.372823391482234,"y":10.132831095159053,"w":2.627176608517766,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":3.63,"depth":1.4,"hold":0.3}],"min":2,"nsol":12,"seed":202},{"room":{"anchors":[[2.137357039158553,1.2]],"core":[2.894025536035508,5.4915610525524245],"goal":[8.79640582324937,8.526699613779781],"cloth":{"x0":1.5824303839831533,"x1":6.996045370168138,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.5824303839831533,"h":1.5999999999999996},{"x":6.996045370168138,"y":13.4,"w":3.0039546298318616,"h":1.5999999999999996},{"x":7.380278321262448,"y":9.426699613779782,"w":2.6197216787375512,"h":0.6},{"x":0,"y":6.902431323425844,"w":2.2,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.55,"type":"pull","x":3.05,"depth":1.4,"hold":0.3}],"min":2,"nsol":12,"seed":303},{"room":{"anchors":[[5.918393390248647,1.2]],"core":[6.126667129802635,5.717467591143214],"goal":[1.7001841226126997,8.010827914625406],"cloth":{"x0":2.969490589200852,"x1":7.440448010526,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.969490589200852,"h":1.5999999999999996},{"x":7.440448010526,"y":13.4,"w":2.5595519894740004,"h":1.5999999999999996},{"x":0,"y":8.910827914625406,"w":3.11744215907529,"h":0.6},{"x":7.8,"y":6.870115963276476,"w":2.2,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":6.22,"depth":0.9,"hold":0.3}],"min":2,"nsol":12,"seed":303},{"room":{"anchors":[[6.092874605156963,1.2]],"core":[5.002703825146441,6.991005438333377],"goal":[1.5596675204578787,7.814630619436501],"cloth":{"x0":3.6119703939433503,"x1":9.030640321994882,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.6119703939433503,"h":1.5999999999999996},{"x":9.030640321994882,"y":13.4,"w":0.9693596780051177,"h":1.5999999999999996},{"x":0,"y":8.714630619436502,"w":3.0199510606005786,"h":0.6},{"x":7.8,"y":5.600282475235872,"w":2.2,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0.2,"type":"cut","i":0},{"t":0.55,"type":"pull","x":4.26,"depth":1.4,"hold":0.3}],"min":2,"nsol":11,"seed":101},{"room":{"anchors":[[4.5921907793445325,1.2]],"core":[4.758767266915533,6.178417939250358],"goal":[8.127816855302079,6.841886374354362],"cloth":{"x0":1.9631688147071504,"x1":7.026654210242977,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.9631688147071504,"h":1.5999999999999996},{"x":7.026654210242977,"y":13.4,"w":2.9733457897570226,"h":1.5999999999999996},{"x":6.726538497582078,"y":7.741886374354363,"w":3.2734615024179217,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.75,"type":"pull","x":5.65,"depth":1.4,"hold":0.3}],"min":2,"nsol":11,"seed":303},{"room":{"anchors":[[4.0145919190251,1.2]],"core":[4.885693601844526,7.13915681252256],"goal":[8.420125660626217,9.077091547846793],"cloth":{"x0":3.5703064844536483,"x1":8.22942927224216,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.5703064844536483,"h":1.5999999999999996},{"x":8.22942927224216,"y":13.4,"w":1.7705707277578409,"h":1.5999999999999996},{"x":6.612534696422517,"y":9.977091547846793,"w":3.387465303577483,"h":0.6}],"spikes":[{"x":5.262854547565803,"y":12.700000000000001,"w":1.1777466289699077,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":4.13,"depth":1.4,"hold":0.3}],"min":2,"nsol":10,"seed":202},{"room":{"anchors":[[7.174006916612265,1.2]],"core":[6.4015701851173015,5.918235710798763],"goal":[1.502246419945732,7.9373352117836475],"cloth":{"x0":2.9811493851388535,"x1":7.8517628085012285,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.9811493851388535,"h":1.5999999999999996},{"x":7.8517628085012285,"y":13.4,"w":2.1482371914987715,"h":1.5999999999999996},{"x":0,"y":8.837335211783648,"w":3.173421140573919,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":6.53,"depth":1.4,"hold":0.3}],"min":2,"nsol":10,"seed":303},{"room":{"anchors":[[6.151267259657911,1.2]],"core":[6.942574572094313,4.993398969550618],"goal":[8.636745700938627,8.431526909023523],"cloth":{"x0":3.394011158940586,"x1":7.958659468942526,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.394011158940586,"h":1.5999999999999996},{"x":7.958659468942526,"y":13.4,"w":2.0413405310574744,"h":1.5999999999999996},{"x":7.5272878811694675,"y":9.331526909023523,"w":2.472712118830532,"h":0.6}],"spikes":[{"x":5.403890333790331,"y":12.700000000000001,"w":1.74110127389431,"h":0.7}],"g":[0,1]},"acts":[{"t":0.4,"type":"cut","i":0},{"t":0.75,"type":"pull","x":5.33,"depth":1.4,"hold":0.3}],"min":2,"nsol":9,"seed":202},{"room":{"anchors":[[4.450262706477912,1.2]],"core":[4.318747481268616,5.883763427799567],"goal":[8.319517364492638,7.926970453560351],"cloth":{"x0":1.9436521680510894,"x1":8.26414949013361,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.9436521680510894,"h":1.5999999999999996},{"x":8.26414949013361,"y":13.4,"w":1.7358505098663901,"h":1.5999999999999996},{"x":6.654273464251309,"y":8.826970453560351,"w":3.3457265357486903,"h":0.6},{"x":0,"y":5.12477252271492,"w":2.2,"h":0.6}],"spikes":[{"x":4.773770989011973,"y":12.700000000000001,"w":1.6257948596030474,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.75,"type":"pull","x":2.7,"depth":1.4,"hold":0.3}],"min":2,"nsol":8,"seed":101},{"room":{"anchors":[[3.4864813014248726,1.2],[1.600715629322302,1.8299173417501153]],"core":[4.493995397848856,5.613019099738449],"goal":[8.71370244687423,8.798559944331645],"cloth":{"x0":1.228288545016964,"x1":7.108403670252135,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.228288545016964,"h":1.5999999999999996},{"x":7.108403670252135,"y":13.4,"w":2.8915963297478653,"h":1.5999999999999996},{"x":7.1251146261580285,"y":9.698559944331645,"w":2.874885373841971,"h":0.6},{"x":0,"y":6.697411042870954,"w":2.2,"h":0.6}],"spikes":[{"x":5.045919164828955,"y":12.700000000000001,"w":1.6774023063480854,"h":0.7}],"g":[0,1]},"acts":[{"t":0.4,"type":"cut","i":0},{"t":0.95,"type":"pull","x":2.83,"depth":1.4,"hold":0.3}],"min":2,"nsol":8,"seed":303},{"room":{"anchors":[[2.6585643397010728,1.2]],"core":[2.446699916880564,5.3801949977641925],"goal":[8.572490975307302,6.234846118837595],"cloth":{"x0":0.9783045561848193,"x1":7.214062171881459,"y":13.4},"solids":[{"x":0,"y":13.4,"w":0.9783045561848193,"h":1.5999999999999996},{"x":7.214062171881459,"y":13.4,"w":2.7859378281185414,"h":1.5999999999999996},{"x":7.057914202753454,"y":7.134846118837595,"w":2.9420857972465457,"h":0.6}],"spikes":[{"x":4.769797187065706,"y":12.700000000000001,"w":1.743922480195761,"h":0.7}],"g":[0,1]},"acts":[{"t":0.2,"type":"cut","i":0},{"t":0.75,"type":"pull","x":4.57,"depth":1.4,"hold":0.3}],"min":2,"nsol":8,"seed":303},{"room":{"anchors":[[6.12130307678233,1.2]],"core":[5.154472825602695,7.609834375395439],"goal":[8.431203011330217,8.833770317584275],"cloth":{"x0":2.6808627908978795,"x1":7.6670436817616405,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.6808627908978795,"h":1.5999999999999996},{"x":7.6670436817616405,"y":13.4,"w":2.3329563182383595,"h":1.5999999999999996},{"x":7.1701501931995155,"y":9.733770317584275,"w":2.8298498068004845,"h":0.6}],"spikes":[{"x":5.525502633862197,"y":12.700000000000001,"w":1.5174138717353345,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":5.55,"depth":0.9,"hold":0.3}],"min":2,"nsol":8,"seed":303},{"room":{"anchors":[[4.8429316993773135,1.2]],"core":[5.2157188322365435,5.150636915676296],"goal":[8.042387162521482,8.481313882768154],"cloth":{"x0":3.767669019759566,"x1":8.36474452559364,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.767669019759566,"h":1.5999999999999996},{"x":8.36474452559364,"y":13.4,"w":1.6352554744063603,"h":1.5999999999999996},{"x":6.6264594895765185,"y":9.381313882768154,"w":3.3735405104234815,"h":0.6}],"spikes":[{"x":5.307146513694898,"y":12.700000000000001,"w":1.1424458691850305,"h":0.7}],"g":[0,1]},"acts":[{"t":0.2,"type":"cut","i":0},{"t":0.55,"type":"pull","x":4.32,"depth":0.9,"hold":0.3}],"min":2,"nsol":7,"seed":101},{"room":{"anchors":[[4.962137246867387,1.2]],"core":[4.2192286409341975,5.970000972948037],"goal":[8.775788618251683,8.299170158058404],"cloth":{"x0":1.7902963668685103,"x1":6.275342703156143,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.7902963668685103,"h":1.5999999999999996},{"x":6.275342703156143,"y":13.4,"w":3.7246572968438567,"h":1.5999999999999996},{"x":6.9832619243301455,"y":9.199170158058404,"w":3.016738075669855,"h":0.6},{"x":0,"y":5.129085536347702,"w":2.2,"h":0.6}],"spikes":[{"x":5.401499589113518,"y":12.700000000000001,"w":1.4092998538166284,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":3.69,"depth":0.9,"hold":0.3}],"min":2,"nsol":7,"seed":202},{"room":{"anchors":[[5.922739544092379,1.2]],"core":[5.413010130590461,7.179020238621161],"goal":[1.1089370377361774,6.740665795654058],"cloth":{"x0":2.053494227142692,"x1":7.6982876338769355,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.053494227142692,"h":1.5999999999999996},{"x":7.6982876338769355,"y":13.4,"w":2.3017123661230645,"h":1.5999999999999996},{"x":0,"y":7.6406657956540585,"w":2.6449853825382887,"h":0.6}],"spikes":[{"x":3.0358679405879228,"y":12.700000000000001,"w":1.4958280758932232,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":4.45,"depth":1.4,"hold":0.3}],"min":2,"nsol":7,"seed":303},{"room":{"anchors":[[4.531278940004465,1.2]],"core":[5.327384323713538,6.055957219959237],"goal":[1.709132846398279,8.767171669006347],"cloth":{"x0":3.0204810283345713,"x1":8.755283491473048,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.0204810283345713,"h":1.5999999999999996},{"x":8.755283491473048,"y":13.4,"w":1.2447165085269525,"h":1.5999999999999996},{"x":0,"y":9.667171669006347,"w":3.262057108990848,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.55,"type":"pull","x":6.32,"depth":1.4,"hold":0.3}],"min":2,"nsol":6,"seed":101},{"room":{"anchors":[[1.8062473507084913,1.2]],"core":[2.8170153790571755,5.679688336444087],"goal":[8.46380868353881,7.02053262591362],"cloth":{"x0":0.9417650508177999,"x1":6.18075532493606,"y":13.4},"solids":[{"x":0,"y":13.4,"w":0.9417650508177999,"h":1.5999999999999996},{"x":6.18075532493606,"y":13.4,"w":3.81924467506394,"h":1.5999999999999996},{"x":7.087080486584455,"y":7.92053262591362,"w":2.9129195134155452,"h":0.6}],"spikes":[{"x":5.488110372703522,"y":12.700000000000001,"w":1.1951840376481413,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":2.37,"depth":1.4,"hold":0.3}],"min":2,"nsol":6,"seed":101},{"room":{"anchors":[[4.6520568166935,1.2]],"core":[5.620046322520928,4.864285858301446],"goal":[1.4150731722824275,7.683859011530876],"cloth":{"x0":2.357722176227804,"x1":7.298177153652619,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.357722176227804,"h":1.5999999999999996},{"x":7.298177153652619,"y":13.4,"w":2.7018228463473806,"h":1.5999999999999996},{"x":0,"y":8.583859011530876,"w":3.097256136778742,"h":0.6}],"spikes":[{"x":3.448895179480314,"y":12.700000000000001,"w":1.3851078452542425,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.75,"type":"pull","x":6.71,"depth":1.4,"hold":0.3}],"min":2,"nsol":6,"seed":202},{"room":{"anchors":[[7.861730371911808,1.2]],"core":[7.404983422656342,7.314494984643534],"goal":[1.540809141471982,7.3625587701797475],"cloth":{"x0":2.841022503032356,"x1":8.759035134251237,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.841022503032356,"h":1.5999999999999996},{"x":8.759035134251237,"y":13.4,"w":1.2409648657487633,"h":1.5999999999999996},{"x":0,"y":8.262558770179748,"w":3.2265299312770366,"h":0.6}],"spikes":[{"x":3.3230664553120732,"y":12.700000000000001,"w":1.5925693096593023,"h":0.7}],"g":[-0.25,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":5.35,"depth":0.9,"hold":0.3}],"min":2,"nsol":6,"seed":202},{"room":{"anchors":[[3.9703459550937223,1.2]],"core":[4.803424736236553,7.067370441602543],"goal":[8.686989217251538,6.205907737463712],"cloth":{"x0":3.5497885684091015,"x1":8.604023370899203,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.5497885684091015,"h":1.5999999999999996},{"x":8.604023370899203,"y":13.4,"w":1.3959766291007973,"h":1.5999999999999996},{"x":7.385719607491046,"y":7.1059077374637125,"w":2.6142803925089537,"h":0.6},{"x":0,"y":4.8148421831429005,"w":2.2,"h":0.6}],"spikes":[{"x":5.2073291603941465,"y":12.700000000000001,"w":1.6232544973492624,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":4.92,"depth":0.9,"hold":0.3}],"min":2,"nsol":6,"seed":303},{"room":{"anchors":[[6.450493316778028,1.2],[2.6930682761660307,1.7981271392665805]],"core":[5.590619405039632,4.755862236535177],"goal":[8.90539583256468,6.646434469521045],"cloth":{"x0":2.4989490573183986,"x1":8.811404095485935,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.4989490573183986,"h":1.5999999999999996},{"x":8.811404095485935,"y":13.4,"w":1.1885959045140648,"h":1.5999999999999996},{"x":7.609833144396543,"y":7.546434469521046,"w":2.3901668556034568,"h":0.6},{"x":0,"y":5.460470121935941,"w":2.2,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":1.05,"type":"pull","x":3.26,"depth":1.4,"hold":0.3}],"min":2,"nsol":5,"seed":101},{"room":{"anchors":[[5.497433328354251,1.2],[3.601209818204385,1.620545094413683]],"core":[5.731957109929514,5.009083929052577],"goal":[8.67432044208981,8.576746255159376],"cloth":{"x0":2.8813235264862387,"x1":7.755209715770042,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.8813235264862387,"h":1.5999999999999996},{"x":7.755209715770042,"y":13.4,"w":2.244790284229958,"h":1.5999999999999996},{"x":7.001661992445588,"y":9.476746255159377,"w":2.9983380075544117,"h":0.6}],"spikes":[{"x":4.885220701573417,"y":12.700000000000001,"w":1.7379194946959615,"h":0.7}],"g":[0,1]},"acts":[{"t":0.7,"type":"cut","i":0},{"t":1.25,"type":"pull","x":3.47,"depth":0.9,"hold":0.3}],"min":2,"nsol":5,"seed":101},{"room":{"anchors":[[5.683751031605434,1.2]],"core":[4.97797447688682,5.6729030614253135],"goal":[8.630204302910714,7.329059091955424],"cloth":{"x0":3.783931945174163,"x1":8.282357236419966,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.783931945174163,"h":1.5999999999999996},{"x":8.282357236419966,"y":13.4,"w":1.7176427635800344,"h":1.5999999999999996},{"x":7.028380302060396,"y":8.229059091955424,"w":2.9716196979396043,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":5.01,"depth":1.4,"hold":0.3}],"min":2,"nsol":4,"seed":101},{"room":{"anchors":[[5.532048316489733,1.2]],"core":[6.013295036744154,4.792297244630754],"goal":[1.339307267498225,6.280393430590629],"cloth":{"x0":2.5356998478817805,"x1":8.303758837358194,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.5356998478817805,"h":1.5999999999999996},{"x":8.303758837358194,"y":13.4,"w":1.6962411626418064,"h":1.5999999999999996},{"x":0,"y":7.180393430590629,"w":2.848998707719147,"h":0.6},{"x":7.8,"y":5.431498008430935,"w":2.2,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.75,"type":"pull","x":7.61,"depth":1.4,"hold":0.3}],"min":2,"nsol":4,"seed":303},{"room":{"anchors":[[6.687941981308926,1.2],[4.903631498494018,1.2794319654814899]],"core":[7.113786064476539,7.443612946430221],"goal":[1.5670423755422234,8.214872059971093],"cloth":{"x0":2.9568223028086003,"x1":9.163930227757978,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.9568223028086003,"h":1.5999999999999996},{"x":9.163930227757978,"y":13.4,"w":0.8360697722420216,"h":1.5999999999999996},{"x":0,"y":9.114872059971093,"w":2.954444334283471,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0.4,"type":"cut","i":0},{"t":0.95,"type":"pull","x":4.65,"depth":0.9,"hold":0.3}],"min":2,"nsol":4,"seed":303},{"room":{"anchors":[[3.1349885185739357,1.2]],"core":[2.9466026927834705,6.844629546045327],"goal":[8.619117156276479,6.669433598965406],"cloth":{"x0":1.5381906064317694,"x1":6.065468848459156,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.5381906064317694,"h":1.5999999999999996},{"x":6.065468848459156,"y":13.4,"w":3.9345311515408437,"h":1.5999999999999996},{"x":6.767383579909802,"y":7.569433598965406,"w":3.2326164200901983,"h":0.6}],"spikes":[{"x":4.956470300257206,"y":12.700000000000001,"w":1.7977544002234938,"h":0.7}],"g":[0.25,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":4.15,"depth":1.4,"hold":0.3}],"min":2,"nsol":4,"seed":303},{"room":{"anchors":[[5.118092241658885,1.2],[2.765419719190392,1.563988611381501]],"core":[5.023167982845623,5.524917376926169],"goal":[8.386909871501848,7.482896596938371],"cloth":{"x0":2.265627894299918,"x1":7.0399452009060175,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.265627894299918,"h":1.5999999999999996},{"x":7.0399452009060175,"y":13.4,"w":2.9600547990939825,"h":1.5999999999999996},{"x":6.699467989616096,"y":8.382896596938371,"w":3.300532010383904,"h":0.6},{"x":0,"y":6.056865482707508,"w":2.2,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0.7,"type":"cut","i":0},{"t":1.45,"type":"pull","x":3.56,"depth":1.4,"hold":0.3}],"min":2,"nsol":3,"seed":101},{"room":{"anchors":[[6.148057975755242,1.2]],"core":[5.18920221696159,6.806404529791325],"goal":[1.5187501046806573,6.914514686912297],"cloth":{"x0":0.8720776791840509,"x1":7.0423890090703685,"y":13.4},"solids":[{"x":0,"y":13.4,"w":0.8720776791840509,"h":1.5999999999999996},{"x":7.0423890090703685,"y":13.4,"w":2.9576109909296315,"h":1.5999999999999996},{"x":0,"y":7.814514686912298,"w":3.3620398307219146,"h":0.6}],"spikes":[{"x":3.9619592600967732,"y":12.700000000000001,"w":1.377959136851132,"h":0.7}],"g":[0,1]},"acts":[{"t":0.4,"type":"cut","i":0},{"t":0.75,"type":"pull","x":6.3,"depth":0.9,"hold":0.3}],"min":2,"nsol":3,"seed":101},{"room":{"anchors":[[8.011096586601978,1.2]],"core":[6.9324091508408845,4.716040319297463],"goal":[1.148980623204261,6.997729513794183],"cloth":{"x0":2.12847288438833,"x1":8.506977205553714,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.12847288438833,"h":1.5999999999999996},{"x":8.506977205553714,"y":13.4,"w":1.4930227944462864,"h":1.5999999999999996},{"x":0,"y":7.897729513794183,"w":2.2955796867609024,"h":0.6}],"spikes":[{"x":2.7880871944129466,"y":12.700000000000001,"w":1.4558319192379714,"h":0.7}],"g":[0,1]},"acts":[{"t":0.2,"type":"cut","i":0},{"t":0.55,"type":"pull","x":7.74,"depth":0.9,"hold":0.3}],"min":2,"nsol":3,"seed":101},{"room":{"anchors":[[4.622117072262186,1.2],[7.245228194363731,1.5035160067956894]],"core":[5.131507223204094,6.2450224923901265],"goal":[1.5181852775625884,7.546607798337936],"cloth":{"x0":3.714098818070478,"x1":8.332481883122808,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.714098818070478,"h":1.5999999999999996},{"x":8.332481883122808,"y":13.4,"w":1.6675181168771918,"h":1.5999999999999996},{"x":0,"y":8.446607798337936,"w":2.773528432380408,"h":0.6}],"spikes":[{"x":3.264795722765848,"y":12.700000000000001,"w":1.7077660052105785,"h":0.7}],"g":[0,1]},"acts":[{"t":1,"type":"cut","i":0},{"t":1.55,"type":"pull","x":6.37,"depth":1.4,"hold":0.3}],"min":2,"nsol":3,"seed":202},{"room":{"anchors":[[6.0219182028969005,1.2],[7.993762761221565,2.002821591962129]],"core":[5.985352056433745,5.652678190125153],"goal":[1.422468155110255,7.431207989901303],"cloth":{"x0":3.7513020812350533,"x1":8.029233452380005,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.7513020812350533,"h":1.5999999999999996},{"x":8.029233452380005,"y":13.4,"w":1.970766547619995,"h":1.5999999999999996},{"x":0,"y":8.331207989901303,"w":2.9043581782840193,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":1,"type":"cut","i":0},{"t":1.55,"type":"pull","x":7.52,"depth":0.9,"hold":0.3}],"min":2,"nsol":3,"seed":303},{"room":{"anchors":[[7.004496627253438,1.2]],"core":[6.992553796012844,5.572150308499113],"goal":[1.4343586398288608,7.181926275044679],"cloth":{"x0":3.3409221753817873,"x1":8.989065660058046,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.3409221753817873,"h":1.5999999999999996},{"x":8.989065660058046,"y":13.4,"w":1.0109343399419544,"h":1.5999999999999996},{"x":0,"y":8.08192627504468,"w":2.9441612022928894,"h":0.6}],"spikes":[{"x":3.294326637405902,"y":12.700000000000001,"w":1.162028642743826,"h":0.7}],"g":[0.25,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":4.02,"depth":0.9,"hold":0.3},{"t":1.55,"type":"pull","x":8.31,"depth":1.4,"hold":0.3}],"min":3,"nsol":12,"seed":202},{"room":{"anchors":[[6.475013440696896,1.2],[4.796666057909281,1.617676997371018]],"core":[7.350416026672722,4.779473582096398],"goal":[1.3569121316075325,9.14324695020914],"cloth":{"x0":4.137818193139258,"x1":8.872530104621994,"y":13.4},"solids":[{"x":0,"y":13.4,"w":4.137818193139258,"h":1.5999999999999996},{"x":8.872530104621994,"y":13.4,"w":1.127469895378006,"h":1.5999999999999996},{"x":0,"y":10.04324695020914,"w":2.9726250899024307,"h":0.6}],"spikes":[{"x":3.3732311030849815,"y":12.700000000000001,"w":1.2138490369543433,"h":0.7}],"g":[0.25,1]},"acts":[{"t":0.4,"type":"cut","i":0},{"t":1.45,"type":"pull","x":6.15,"depth":1.4,"hold":0.3}],"min":2,"nsol":2,"seed":202},{"room":{"anchors":[[5.617200361909539,1.2]],"core":[5.630481930608124,6.599082192196511],"goal":[1.5002658842131495,7.244843817502259],"cloth":{"x0":2.5280505267337325,"x1":8.777695486172325,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.5280505267337325,"h":1.5999999999999996},{"x":8.777695486172325,"y":13.4,"w":1.222304513827675,"h":1.5999999999999996},{"x":0,"y":8.14484381750226,"w":2.813592738751322,"h":0.6}],"spikes":[{"x":2.9175180843565616,"y":12.700000000000001,"w":1.286806008219719,"h":0.7}],"g":[0.25,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.75,"type":"pull","x":7.08,"depth":1.4,"hold":0.3}],"min":2,"nsol":2,"seed":303},{"room":{"anchors":[[5.172513641360101,1.2]],"core":[6.138952358196375,5.019452432822436],"goal":[8.791933867661282,6.660371685773134],"cloth":{"x0":2.4436687226380402,"x1":8.757955251957402,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.4436687226380402,"h":1.5999999999999996},{"x":8.757955251957402,"y":13.4,"w":1.2420447480425985,"h":1.5999999999999996},{"x":7.597300596814602,"y":7.560371685773134,"w":2.4026994031853977,"h":0.6}],"spikes":[{"x":6.253390553826465,"y":12.700000000000001,"w":1.106907963566482,"h":0.7}],"g":[0,1]},"acts":[{"t":0.2,"type":"cut","i":0},{"t":1.25,"type":"pull","x":5.12,"depth":1.4,"hold":0.3}],"min":2,"nsol":2,"seed":303},{"room":{"anchors":[[5.031147865827468,1.2]],"core":[5.0037116660431895,5.337216369458474],"goal":[8.539516491396352,6.879542700201273],"cloth":{"x0":1.4017539870945925,"x1":7.760683795206454,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.4017539870945925,"h":1.5999999999999996},{"x":7.760683795206454,"y":13.4,"w":2.239316204793546,"h":1.5999999999999996},{"x":7.397846774943172,"y":7.779542700201273,"w":2.6021532250568273,"h":0.6},{"x":0,"y":6.185516810393892,"w":2.2,"h":0.6}],"spikes":[{"x":6.220049493620171,"y":12.700000000000001,"w":1.0628731397911906,"h":0.7}],"g":[0,1]},"acts":[{"t":0.2,"type":"cut","i":0},{"t":0.55,"type":"pull","x":6.03,"depth":1.4,"hold":0.3}],"min":2,"nsol":2,"seed":303},{"room":{"anchors":[[5.977041126067705,1.2]],"core":[5.194107824402817,5.223963589267806],"goal":[8.451281334552915,6.28784077167511],"cloth":{"x0":3.714117129032795,"x1":9.125247383003419,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.714117129032795,"h":1.5999999999999996},{"x":9.125247383003419,"y":13.4,"w":0.8747526169965809,"h":1.5999999999999996},{"x":7.4166833750903605,"y":7.18784077167511,"w":2.5833166249096395,"h":0.6},{"x":0,"y":6.866731168585829,"w":2.2,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":5.19,"depth":1.4,"hold":0.3}],"min":2,"nsol":2,"seed":303},{"room":{"anchors":[[4.914560282831444,1.2]],"core":[5.623439662200763,5.343114446359687],"goal":[1.9089323765132575,6.182086911797523],"cloth":{"x0":1.6925701482209434,"x1":7.200190608574735,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.6925701482209434,"h":1.5999999999999996},{"x":7.200190608574735,"y":13.4,"w":2.7998093914252653,"h":1.5999999999999996},{"x":0,"y":7.082086911797523,"w":3.227309335116297,"h":0.6},{"x":7.8,"y":6.0237449610140175,"w":2.2,"h":0.6}],"spikes":[{"x":3.6463611993473024,"y":12.700000000000001,"w":1.771172577701509,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":5.7,"depth":1.4,"hold":0.3}],"min":2,"nsol":1,"seed":202},{"room":{"anchors":[[5.228153040133847,1.2],[2.390807074927224,1.890981413703412]],"core":[4.501026186593307,6.958699211152271],"goal":[8.481231894763187,6.383528079837561],"cloth":{"x0":1.8186185540723843,"x1":6.841707851560717,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.8186185540723843,"h":1.5999999999999996},{"x":6.841707851560717,"y":13.4,"w":3.1582921484392834,"h":1.5999999999999996},{"x":6.704682279098779,"y":7.283528079837561,"w":3.295317720901221,"h":0.6},{"x":0,"y":4.8394932980882,"w":2.2,"h":0.6}],"spikes":[{"x":4.736061889166012,"y":12.700000000000001,"w":1.7337518250569701,"h":0.7}],"g":[0,1]},"acts":[{"t":1,"type":"cut","i":0},{"t":2.35,"type":"pull","x":2.42,"depth":1.4,"hold":0.3}],"min":2,"nsol":1,"seed":202},{"room":{"anchors":[[5.816240358450428,1.2],[3.727965548546032,1.773957435321063]],"core":[6.387552133672849,5.2655156117165465],"goal":[1.3580583660863341,6.746556701511144],"cloth":{"x0":3.3408116695156647,"x1":9.17519334029987,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.3408116695156647,"h":1.5999999999999996},{"x":9.17519334029987,"y":13.4,"w":0.8248066597001298,"h":1.5999999999999996},{"x":0,"y":7.646556701511145,"w":2.4444862009957435,"h":0.6}],"spikes":[],"g":[0.25,1]},"acts":[{"t":1,"type":"cut","i":0},{"t":1.75,"type":"pull","x":6.7,"depth":1.4,"hold":0.3}],"min":2,"nsol":1,"seed":303},{"room":{"anchors":[[3.578516915059967,1.2]],"core":[3.125615823260827,5.174730587378145],"goal":[0.9890711645595731,8.061990087479352],"cloth":{"x0":1.968127797319241,"x1":7.5065254020119685,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.968127797319241,"h":1.5999999999999996},{"x":7.5065254020119685,"y":13.4,"w":2.4934745979880315,"h":1.5999999999999996},{"x":0,"y":8.961990087479352,"w":2.208426657225937,"h":0.6},{"x":7.8,"y":5.587718862690963,"w":2.2,"h":0.6}],"spikes":[],"g":[0.25,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.75,"type":"pull","x":6.84,"depth":1.4,"hold":0.3}],"min":2,"nsol":1,"seed":303},{"room":{"anchors":[[6.934188147524771,1.2],[9.117095197953683,1.4412537888158112]],"core":[6.501301526727554,5.936628444259987],"goal":[1.625255034910515,6.764497120678424],"cloth":{"x0":2.2926891927917366,"x1":7.667707537378452,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.2926891927917366,"h":1.5999999999999996},{"x":7.667707537378452,"y":13.4,"w":2.332292462621548,"h":1.5999999999999996},{"x":0,"y":7.6644971206784245,"w":2.9349151307716967,"h":0.6}],"spikes":[{"x":3.1855925327632577,"y":12.700000000000001,"w":1.0018506586551665,"h":0.7}],"g":[-0.25,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"cut","i":1},{"t":0.7,"type":"pull","x":5.39,"depth":1.4,"hold":0.3}],"min":3,"nsol":8,"seed":202},{"room":{"anchors":[[4.2399890954707145,1.2],[2.5239360884398545,1.352261460898444]],"core":[5.058100842415201,5.745948823355138],"goal":[8.969330122647806,7.540889502316713],"cloth":{"x0":3.383772764414524,"x1":8.535179810238978,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.383772764414524,"h":1.5999999999999996},{"x":8.535179810238978,"y":13.4,"w":1.4648201897610225,"h":1.5999999999999996},{"x":7.606584382988512,"y":8.440889502316713,"w":2.3934156170114878,"h":0.6}],"spikes":[],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":1},{"t":0.35,"type":"cut","i":0},{"t":0.7,"type":"pull","x":4,"depth":1.4,"hold":0.3}],"min":3,"nsol":6,"seed":303},{"room":{"anchors":[[7.547139494844348,1.2],[8.956501457818419,1.5669052373152226]],"core":[6.351126275003524,5.014888315205463],"goal":[1.6141047936398536,6.736191793531179],"cloth":{"x0":3.127530587641126,"x1":7.520209395270399,"y":13.4},"solids":[{"x":0,"y":13.4,"w":3.127530587641126,"h":1.5999999999999996},{"x":7.520209395270399,"y":13.4,"w":2.479790604729601,"h":1.5999999999999996},{"x":0,"y":7.63619179353118,"w":3.343764155358076,"h":0.6}],"spikes":[{"x":3.7259913713205606,"y":12.700000000000001,"w":1.56818323507905,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":1.05,"type":"cut","i":1},{"t":2.1,"type":"pull","x":6.33,"depth":1.4,"hold":0.3}],"min":3,"nsol":6,"seed":303},{"room":{"anchors":[[4.3384845689357965,1.2]],"core":[4.666634226818546,4.70311161915306],"goal":[1.6917890479788182,7.880591077357529],"cloth":{"x0":2.5152532370638947,"x1":8.3209123880946,"y":13.4},"solids":[{"x":0,"y":13.4,"w":2.5152532370638947,"h":1.5999999999999996},{"x":8.3209123880946,"y":13.4,"w":1.6790876119054001,"h":1.5999999999999996},{"x":0,"y":8.78059107735753,"w":3.0410810841247438,"h":0.6},{"x":7.8,"y":5.7707143620355055,"w":2.2,"h":0.6}],"spikes":[{"x":3.492465353058651,"y":12.700000000000001,"w":1.4648949276655912,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.35,"type":"pull","x":4.09,"depth":1.4,"hold":0.3},{"t":1.75,"type":"pull","x":5.86,"depth":1.4,"hold":0.3}],"min":3,"nsol":3,"seed":202},{"room":{"anchors":[[5.423248379330653,1.2],[3.9018145459494917,1.33364201458171]],"core":[6.104653492781836,4.815225938311778],"goal":[8.979900832008571,8.525868241488933],"cloth":{"x0":4.565943617995903,"x1":8.842693012084887,"y":13.4},"solids":[{"x":0,"y":13.4,"w":4.565943617995903,"h":1.5999999999999996},{"x":8.842693012084887,"y":13.4,"w":1.1573069879151134,"h":1.5999999999999996},{"x":7.48432579273358,"y":9.425868241488933,"w":2.51567420726642,"h":0.6},{"x":0,"y":5.3050889923470095,"w":2.2,"h":0.6}],"spikes":[{"x":5.354271740745753,"y":12.700000000000001,"w":1.6030440816655755,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.75,"type":"pull","x":5.08,"depth":1.4,"hold":0.3},{"t":2.45,"type":"pull","x":5.73,"depth":1.4,"hold":0.3}],"min":3,"nsol":2,"seed":101},{"room":{"anchors":[[4.820008498923419,1.2],[7.644356381874097,1.5142550757620483]],"core":[5.605869863675473,4.542584775784053],"goal":[1.425095532927662,6.52545124515891],"cloth":{"x0":1.9922748273420068,"x1":8.23388343343464,"y":13.4},"solids":[{"x":0,"y":13.4,"w":1.9922748273420068,"h":1.5999999999999996},{"x":8.23388343343464,"y":13.4,"w":1.7661165665653602,"h":1.5999999999999996},{"x":0,"y":7.425451245158911,"w":3.2075296141207215,"h":0.6},{"x":7.8,"y":5.88182217720896,"w":2.2,"h":0.6}],"spikes":[{"x":3.7417704789433626,"y":12.700000000000001,"w":1.3541381692513823,"h":0.7}],"g":[0,1]},"acts":[{"t":0,"type":"cut","i":0},{"t":0.55,"type":"cut","i":1},{"t":1.3,"type":"pull","x":6.54,"depth":1.4,"hold":0.3}],"min":3,"nsol":1,"seed":101}];
+</script>
+<script>
+(() => {
+'use strict';
+if (!CanvasRenderingContext2D.prototype.roundRect) CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r); this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath(); };
+const MC = window.MembranaCore, CC = window.CuerdasCore, CO = window.Colores;
+const W = 10, H = 15, TAU = 6.283;
+const $ = id => document.getElementById(id);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const cv = $('cv'); let ctx = cv.getContext('2d');
+const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const YARN = ['#F2877B', '#FFD166', '#7CCDB9', '#F58FB3'], CONF = ['#F2877B', '#FFD166', '#7CCDB9', '#F58FB3', '#8FA8F0'];
+const PENTA = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25, 783.99];
+const REGCOL = ['#F2877B', '#FFD166', '#7CCDB9', '#9FA8F0', '#F58FB3', '#F5A25D', '#7FC4F2', '#B7D96B'];
+
+/* ---------- Estado y guardado ---------- */
+const G = { slow: 0, ema: 0, dprCap: 2, fast: false, paused: false, scene: 'hub', room: null, puzzle: null, mode: null, layer: 1, stage: 0, idx: 1, busy: false, timeNow: 0, hintT: 0, win: null, block: 0 };
+const ITEMS = [
+  { id: 'c_sol', cat: 'c', name: 'Amarillo', cost: 0, val: '#FFD166' }, { id: 'c_rosa', cat: 'c', name: 'Rosa', cost: 8, val: '#F58FB3' },
+  { id: 'c_menta', cat: 'c', name: 'Menta', cost: 14, val: '#7CCDB9' }, { id: 'c_cielo', cat: 'c', name: 'Cielo', cost: 20, val: '#8FB4F2' },
+  { id: 'a_none', cat: 'a', name: 'Sin accesorio', cost: 0 }, { id: 'a_mono', cat: 'a', name: 'Moño', cost: 10 }, { id: 'a_sombrero', cat: 'a', name: 'Sombrero', cost: 16 },
+  { id: 'a_gafas', cat: 'a', name: 'Gafas', cost: 22 }, { id: 'a_corona', cat: 'a', name: 'Corona', cost: 40 },
+  { id: 'f_normal', cat: 'f', name: 'Normal', cost: 0 }, { id: 'f_feliz', cat: 'f', name: 'Contenta', cost: 6 }, { id: 'f_dormida', cat: 'f', name: 'Dormida', cost: 12 },
+  { id: 'k_naranja', cat: 'k', name: 'Naranja y azul', cost: 0, val: ['#F5A25D', '#6FB3F2', '#FFD166'] }, { id: 'k_menta', cat: 'k', name: 'Menta y coral', cost: 12, val: ['#7CCDB9', '#F2877B', '#FFE9A8'] },
+  { id: 'k_lila', cat: 'k', name: 'Lila y sol', cost: 18, val: ['#9FA8F0', '#FFD166', '#F58FB3'] }
+];
+const CATS = { c: 'Color de la bola', a: 'Accesorio', f: 'Cara', k: 'Colores del cubo' };
+const ITEM = id => ITEMS.find(i => i.id === id) || ITEMS[0];
+const defSave = () => ({ stars: 0, best: {}, owned: ['c_sol', 'a_none', 'f_normal', 'k_naranja'], equip: { c: 'c_sol', a: 'a_none', f: 'f_normal', k: 'k_naranja' }, cubeLayer: 1, mem: 1, rope: 1, sound: true, aim: 'directo', offset: 40 });
+let S = defSave();
+try { const r = JSON.parse(localStorage.getItem('cubo.save') || 'null'); if (r) S = Object.assign(defSave(), r); } catch (e) {}
+function save() { try { localStorage.setItem('cubo.save', JSON.stringify(S)); } catch (e) {} }
+function award(key, n) { const prev = S.best[key] || 0; if (n > prev) { S.stars += n - prev; S.best[key] = n; save(); updateBadge(); return n - prev; } return 0; }
+function updateBadge() { $('starsN').textContent = S.stars; $('shopStars').textContent = S.stars; $('mShopS').textContent = S.stars + ' ★'; }
+const cubePal = () => ITEM(S.equip.k).val;
+const ballCol = c => c === 'rosa' ? '#F58FB3' : ITEM(S.equip.c).val;
+
+/* ---------- Audio y háptica ---------- */
+let ac = null;
+function initAudio() { if (!S.sound) return; try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) { ac = null; } }
+function tone(f, d, vol, type, f2) {
+  if (!S.sound || !ac) return;
+  try { const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g).connect(ac.destination); o.start(t); o.stop(t + d + 0.02); } catch (e) {}
+}
+const note = (i, d, vol, type) => tone(PENTA[Math.min(PENTA.length - 1, i)] * (1 + (Math.random() - 0.5) * 0.12), d, vol, type);
+const slide = (a, b, d, vol) => tone(a, d, vol, 'sine', b);
+const vib = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+const toastEl = $('toast'); let toastT = 0;
+function toast(m) { toastEl.textContent = m; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { toastEl.hidden = true; }, 3600); }
+function hint(txt) { const h = $('hint'); clearTimeout(G.hintT); if (!txt) { h.classList.add('gone'); return; } h.textContent = txt; h.classList.remove('gone'); G.hintT = setTimeout(() => h.classList.add('gone'), 5200); }
+const wait = ms => new Promise(r => setTimeout(r, G.fast ? 0 : ms));
+
+/* ---------- Disposición ---------- */
+let dpr = 1, vw = 0, vh = 0, sc = 1, ox = 0, oy = 0;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, G.dprCap || 2); vw = cv.clientWidth; vh = cv.clientHeight; cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr);
+  const top = 62, bottom = 14, mx = 12; sc = Math.min((vw - 2 * mx) / W, (vh - top - bottom) / H); ox = (vw - W * sc) / 2; oy = top + (vh - top - bottom - H * sc) / 2;
+}
+window.addEventListener('resize', resize);
+const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
+/* Capas estáticas de cada sala: se dibujan una vez y luego solo se copian (menos relleno de pantalla por cuadro) */
+function layer(R, name, drawFn) {
+  const stamp = [dpr, sc, ox, oy, vw, vh].join(); R.cache = R.cache || {}; const c = R.cache[name]; if (c && c.stamp === stamp) return c.cv;
+  const cvs = document.createElement('canvas'); cvs.width = Math.round(vw * dpr); cvs.height = Math.round(vh * dpr); const g = cvs.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const old = ctx; ctx = g; try { drawFn(); } finally { ctx = old; } R.cache[name] = { stamp, cv: cvs }; return cvs;
+}
+function blit(c) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(c, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+const shade = (hex, amt) => { const n = parseInt(hex.slice(1), 16), f = c => clamp(Math.round(c * (1 + amt)), 0, 255); return 'rgb(' + f(n >> 16) + ',' + f((n >> 8) & 255) + ',' + f(n & 255) + ')'; };
+
+/* ---------- Dibujo común ---------- */
+const weave = (() => { const c = document.createElement('canvas'); c.width = c.height = 6; const x = c.getContext('2d'); x.strokeStyle = 'rgba(40,90,80,0.9)'; x.lineWidth = 1; x.beginPath(); x.moveTo(0, 6); x.lineTo(6, 0); x.moveTo(-1, 1); x.lineTo(1, -1); x.moveTo(5, 7); x.lineTo(7, 5); x.stroke(); return c; })();
+const quilt = (() => { const c = document.createElement('canvas'); c.width = c.height = 24; const x = c.getContext('2d'); x.strokeStyle = 'rgba(70,80,160,0.55)'; x.lineWidth = 1; x.beginPath(); x.moveTo(0, 12); x.lineTo(12, 0); x.lineTo(24, 12); x.lineTo(12, 24); x.closePath(); x.stroke(); return c; })();
+function boardFrame() { const bw = W * sc, bh = H * sc; ctx.fillStyle = '#CDB787'; rr(ox - 8, oy - 4, bw + 16, bh + 16, 30); ctx.fill(); ctx.fillStyle = '#E7D3AA'; rr(ox - 8, oy - 8, bw + 16, bh + 16, 30); ctx.fill(); }
+function stitch() { const bw = W * sc, bh = H * sc; ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2; ctx.setLineDash([7, 7]); rr(ox + 7, oy + 7, bw - 14, bh - 14, 16); ctx.stroke(); ctx.setLineDash([]); }
+function feltBlock(x, y, w, h, col, dk, hl) {
+  const X = ox + x * sc, Y = oy + y * sc, ww = w * sc, hh = h * sc, r = Math.min(ww, hh) / 2.2;
+  ctx.fillStyle = 'rgba(30,50,60,0.28)'; rr(X + 2, Y + 7, ww, hh, r); ctx.fill(); ctx.fillStyle = dk; rr(X, Y + 3, ww, hh, r); ctx.fill(); ctx.fillStyle = col; rr(X, Y, ww, hh, r); ctx.fill();
+  if (ww > 14 && hh > 14) { ctx.strokeStyle = hl || 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.6; ctx.setLineDash([5, 5]); rr(X + 4, Y + 4, ww - 8, hh - 8, Math.max(2, r - 3)); ctx.stroke(); ctx.setLineDash([]); }
+}
+function goalRing(g, kindCol) {
+  const X = ox + g.x * sc, Y = oy + g.y * sc, R = MC.GOAL_R * sc; ctx.fillStyle = kindCol; ctx.beginPath(); ctx.arc(X, Y, R * 1.14, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#3a2a33'; ctx.beginPath(); ctx.arc(X, Y, R * 0.92, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.beginPath(); ctx.arc(X - R * 0.25, Y - R * 0.3, R * 0.3, 0, TAU); ctx.fill();
+}
+/* Pompón con carita y accesorios. st: color, ang, sp, sq, sqx, sqy, look [tx,ty], blink, scared, face, acc, k (escala) */
+function drawPom(g, X, Y, R, st) {
+  const k = st.k === undefined ? 1 : st.k; if (k <= 0) return;
+  g.save(); g.translate(X, Y); g.scale(k, k);
+  g.fillStyle = 'rgba(30,40,70,0.25)'; g.beginPath(); g.ellipse(R * 0.18, R * 0.36, R * 0.95, R * 0.82, 0, 0, TAU); g.fill();
+  const sp = st.sp || 0, ang = st.ang || 0, sx = 1 + Math.min(0.26, sp * 0.014);
+  if (st.sq > 0) { const q = st.sq * 0.28, na = Math.atan2(st.sqy || 0, st.sqx || 0); g.rotate(na); g.scale(1 - q, 1 + q); g.rotate(-na); }
+  g.rotate(ang); g.scale(sx, 1 / sx); g.rotate(-ang);
+  const col = st.color || '#FFD166'; g.fillStyle = shade(col, -0.08);
+  for (let i = 0; i < 14; i++) { const a = i / 14 * TAU + 0.2; g.beginPath(); g.arc(Math.cos(a) * R * 0.92, Math.sin(a) * R * 0.92, R * 0.2, 0, TAU); g.fill(); }
+  const gr = g.createRadialGradient(-R * 0.35, -R * 0.4, R * 0.1, 0, 0, R * 1.05); gr.addColorStop(0, '#fffbe6'); gr.addColorStop(0.4, col); gr.addColorStop(1, shade(col, -0.18));
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
+  const face = st.face || 'f_normal', scared = st.scared && face !== 'f_dormida', eh = (st.blink ? 0.12 : 1);
+  const [tx, ty] = st.look || [0, 1], td = Math.hypot(tx, ty) || 1, lx = tx / td * R * 0.09, ly = ty / td * R * 0.09;
+  for (const s of [-1, 1]) {
+    const ex = s * R * 0.34, ey = -R * 0.08;
+    if (face === 'f_dormida') { g.strokeStyle = '#3b2f3a'; g.lineWidth = Math.max(1.5, R * 0.07); g.lineCap = 'round'; g.beginPath(); g.arc(ex, ey, R * 0.16, 0.1 * Math.PI, 0.9 * Math.PI); g.stroke(); }
+    else if (face === 'f_feliz' && !scared) { g.strokeStyle = '#3b2f3a'; g.lineWidth = Math.max(1.5, R * 0.08); g.lineCap = 'round'; g.beginPath(); g.arc(ex, ey + R * 0.1, R * 0.17, 1.15 * Math.PI, 1.85 * Math.PI); g.stroke(); }
+    else { const z = scared ? 1.25 : 1; g.fillStyle = '#fff'; g.beginPath(); g.ellipse(ex, ey, R * 0.22 * z, R * 0.27 * eh * z, 0, 0, TAU); g.fill(); g.fillStyle = '#3b2f3a'; g.beginPath(); g.ellipse(ex + lx, ey + ly * eh, R * (scared ? 0.08 : 0.11), R * 0.15 * eh * (scared ? 0.8 : 1), 0, 0, TAU); g.fill(); }
+    g.fillStyle = 'rgba(244,120,140,0.5)'; g.beginPath(); g.arc(s * R * 0.58, R * 0.24, R * 0.14, 0, TAU); g.fill();
+  }
+  g.strokeStyle = '#3b2f3a'; g.lineWidth = Math.max(1.5, R * 0.07); g.lineCap = 'round'; g.beginPath();
+  if (scared) g.ellipse(0, R * 0.4, R * 0.1, R * 0.13, 0, 0, TAU); else if (face === 'f_feliz') g.arc(0, R * 0.16, R * 0.24, 0.1 * Math.PI, 0.9 * Math.PI); else g.arc(0, R * 0.2, R * 0.2, 0.25 * Math.PI, 0.75 * Math.PI); g.stroke();
+  const acc = st.acc || 'a_none';
+  if (acc === 'a_mono') { g.fillStyle = '#F2877B'; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(s * R * 0.12, -R * 0.98); g.lineTo(s * R * 0.62, -R * 1.2); g.lineTo(s * R * 0.58, -R * 0.78); g.closePath(); g.fill(); } g.fillStyle = '#C9665B'; g.beginPath(); g.arc(0, -R * 0.98, R * 0.14, 0, TAU); g.fill(); }
+  if (acc === 'a_sombrero') { g.fillStyle = '#4A3B47'; g.beginPath(); g.ellipse(0, -R * 0.92, R * 0.62, R * 0.14, 0, 0, TAU); g.fill(); g.fillRect(-R * 0.36, -R * 1.5, R * 0.72, R * 0.62); g.fillStyle = '#F2877B'; g.fillRect(-R * 0.36, -R * 1.02, R * 0.72, R * 0.14); }
+  if (acc === 'a_gafas') { g.strokeStyle = '#2f2530'; g.lineWidth = Math.max(2, R * 0.1); g.fillStyle = 'rgba(40,30,50,0.78)'; for (const s of [-1, 1]) { g.beginPath(); g.roundRect(s * R * 0.34 - R * 0.28, -R * 0.08 - R * 0.2, R * 0.56, R * 0.4, R * 0.12); g.fill(); g.stroke(); } g.beginPath(); g.moveTo(-R * 0.06, -R * 0.1); g.lineTo(R * 0.06, -R * 0.1); g.stroke(); }
+  if (acc === 'a_corona') { g.fillStyle = '#F2B21B'; g.strokeStyle = '#C98A0A'; g.lineWidth = 2; g.beginPath(); g.moveTo(-R * 0.5, -R * 0.9); g.lineTo(-R * 0.5, -R * 1.45); g.lineTo(-R * 0.25, -R * 1.18); g.lineTo(0, -R * 1.55); g.lineTo(R * 0.25, -R * 1.18); g.lineTo(R * 0.5, -R * 1.45); g.lineTo(R * 0.5, -R * 0.9); g.closePath(); g.fill(); g.stroke(); }
+  g.restore();
+}
+const popStyle = (R, o) => Object.assign({ color: ballCol('sol'), face: S.equip.f, acc: S.equip.a }, o);
+
+/* ---------- Salas: creación ---------- */
+const sortedPool = (window.__POOL__ || []).slice().sort((a, b) => (a.min * 10 - a.nsol) - (b.min * 10 - b.nsol));
+function newRoom(kind, def, meta) { const R = { kind, def, meta: meta || {}, attempts: 0, trazo: 0, touches: 0, parts: [], whips: [], shake: 0, freeze: 0, pid: null, p0: null, ptr: null, state: 'play', winDelay: 0, acc: 0, blinkT: Math.random() * 4 }; buildSim(R); return R; }
+function buildSim(R) {
+  R.sim = R.kind === 'mem' ? new MC.MemSim(R.def, {}, (t, d) => memEvent(R, t, d)) : new CC.RopeSim(R.def, {}, (t, d) => ropeEvent(R, t, d));
+  R.freeze = 0; R.pid = null; R.p0 = null; R.ptr = null; R.state = 'play'; R.winDelay = 0; R.acc = 0; R.trazo = 0; R.parts = []; R.whips = [];
+}
+function tutorialFor(layer) { return [0, 1, 4][layer - 1]; }
+function memRoomFor(layer) {
+  if (G.mode === 'cubo' && layer <= 3) { const d = MC.TUTORIAL[tutorialFor(layer)]; return newRoom('mem', d, { hint: d.hint, par: MC.parTrazo(d) }); }
+  const d = MC.genRoomVerified(layer, layer * 17 + 3); return newRoom('mem', d, { hint: layer === 4 ? 'Ahora las salas cambian solas: cada capa es distinta.' : '', par: MC.parTrazo(d) });
+}
+function ropeEntryFor(idx0) {
+  const i = clamp(idx0, 0, sortedPool.length - 1), e = sortedPool[i], r = MC_rng(i * 977 + 13), flip = r() < 0.5;
+  return { room: flip ? CC.mirror(e.room) : e.room, acts: flip ? CC.mirrorActs(e.room, e.acts) : e.acts, min: e.min, nsol: e.nsol, i };
+}
+function MC_rng(seed) { return MC.mulberry32(seed); }
+function ropeRoomFor(idx0, layer) {
+  if (!sortedPool.length) return null;
+  const e = ropeEntryFor(idx0);
+  const h = idx0 === 0 ? 'Corta el hilo, tira de la tela hacia abajo y suelta para lanzar la bola al agujero.' : (idx0 === 1 ? 'Más profundidad, más impulso. Prueba a tirar a un lado.' : '');
+  return newRoom('rope', e.room, { hint: h, parActions: e.min + 1, acts: e.acts, min: e.min });
+}
+function ropeIndexForLayer(layer) { const n = sortedPool.length; return clamp(Math.round((layer - 1) * n / 12) + Math.floor(MC_rng(layer * 31)() * 3), 0, n - 1); }
+function newPuzzle(N, seed, meta) { const p = CO.genPuzzle(N, seed); const P = { kind: 'col', N, reg: p.reg, sol: p.sol, cells: Array.from({ length: N }, () => new Array(N).fill(0)), locked: new Set(), hints: 0, solved: false, bad: new Set(), meta: meta || {}, winDelay: 0, state: 'play', parts: [], pulse: 0 }; return P; }
+
+/* ---------- Eventos de simulación ---------- */
+function confetti(R, x, y) { for (let k = 0; k < 46; k++) { const a = Math.random() * TAU, s = 3 + Math.random() * 6; R.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 3, r: Math.random() * 6, life: 1.3, c: CONF[k % CONF.length] }); } }
+function arpeggio() { [0, 2, 4, 5, 7].forEach((n, k) => setTimeout(() => note(n, 0.28, 0.13, 'sine'), G.fast ? 0 : k * 90)); vib([20, 40, 20]); }
+function memEvent(R, t, d) {
+  if (t === 'bump') { note(2 + Math.floor(Math.random() * 5), 0.11, Math.min(0.2, 0.05 + d.sp * 0.012), 'triangle'); if (d.sp > 5) vib(8); }
+  else if (t === 'goal') note(6, 0.2, 0.12, 'sine');
+  else if (t === 'fall') { slide(380, 90, 0.4, 0.14); vib(30); }
+  else if (t === 'win') { arpeggio(); confetti(R, R.def.goals[0].x, R.def.goals[0].y); }
+}
+function ropeEvent(R, t, d) {
+  if (t === 'cut' || t === 'snap') { R.freeze = 0.065; R.shake = 0.26; R.whips.push({ ax: d.t.ax, ay: d.t.ay, bx: d.cx, by: d.cy, col: YARN[d.t.idx % YARN.length], life: 0.35, seed: Math.random() * 6 }); note(d.t.idx % 4 + (t === 'snap' ? 0 : 3), 0.3, 0.16, t === 'snap' ? 'sawtooth' : 'sine'); vib(t === 'snap' ? [10, 20, 10] : 12); }
+  else if (t === 'bounce') { slide(200, 420, 0.14, 0.12); vib(10); }
+  else if (t === 'bump') { note(2 + Math.floor(Math.random() * 4), 0.1, Math.min(0.18, 0.04 + d.s * 0.01), 'triangle'); }
+  else if (t === 'release') slide(170, 110, 0.1, 0.06);
+  else if (t === 'die') { slide(300, 70, 0.35, 0.14); vib(30); R.freeze = 0.05; R.shake = 0.3; }
+  else if (t === 'win') { arpeggio(); confetti(R, R.def.goal[0], R.def.goal[1]); }
+}
+
+/* ---------- Dibujo de salas ---------- */
+const L3 = (() => { const x = -0.45, y = -0.6, z = 0.66, n = Math.hypot(x, y, z); return [x / n, y / n, z / n]; })();
+const surf = document.createElement('canvas'); surf.width = MC.NX; surf.height = MC.NY; const sctx = surf.getContext('2d'), simg = sctx.createImageData(MC.NX, MC.NY);
+function shadeSurface(h) {
+  const NX = MC.NX, NY = MC.NY, CELL = MC.CELL, d = simg.data, DK = [58, 140, 124], BS = [124, 205, 185], LT = [196, 243, 226];
+  for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+    const n = j * NX + i, gx = (h[Math.min(NX - 1, i + 1) + j * NX] - h[Math.max(0, i - 1) + j * NX]) / (2 * CELL), gy = (h[i + Math.min(NY - 1, j + 1) * NX] - h[i + Math.max(0, j - 1) * NX]) / (2 * CELL);
+    const dot = (-gx * L3[0] - gy * L3[1] + L3[2]) / Math.hypot(gx, gy, 1), t = clamp(0.5 + (dot - L3[2]) * 1.7, 0, 1); let a, b, u;
+    if (t < 0.5) { a = DK; b = BS; u = t * 2; } else { a = BS; b = LT; u = (t - 0.5) * 2; }
+    const dep = Math.max(0.55, 1 + h[n] * 0.35), o = n * 4; d[o] = (a[0] + (b[0] - a[0]) * u) * dep; d[o + 1] = (a[1] + (b[1] - a[1]) * u) * dep; d[o + 2] = (a[2] + (b[2] - a[2]) * u) * dep; d[o + 3] = 255;
+  }
+  sctx.putImageData(simg, 0, 0);
+}
+function renderMem(R) {
+  const sim = R.sim, d = R.def, bw = W * sc, bh = H * sc;
+  blit(layer(R, 'base', () => { ctx.fillStyle = '#F6E9CF'; ctx.fillRect(0, 0, vw, vh); boardFrame(); }));
+  shadeSurface(sim.h);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'low';
+  ctx.drawImage(surf, 0.5, 0.5, MC.NX - 1, MC.NY - 1, ox, oy, bw, bh);           // sin recorte: las esquinas redondeadas las pone la capa de arriba
+  blit(layer(R, 'under', () => {
+    ctx.save(); rr(ox, oy, bw, bh, 22); ctx.clip(); ctx.globalAlpha = 0.07; ctx.fillStyle = ctx.createPattern(weave, 'repeat'); ctx.fillRect(ox, oy, bw, bh); ctx.globalAlpha = 1;
+    for (const p of d.pits) { const X = ox + p.x * sc, Y = oy + p.y * sc, r = p.r * sc, g = ctx.createRadialGradient(X, Y, r * 0.2, X, Y, r); g.addColorStop(0, '#2c2230'); g.addColorStop(0.75, '#3d2f3f'); g.addColorStop(1, 'rgba(61,47,63,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(X, Y, r, 0, TAU); ctx.fill(); }
+    for (const g of d.goals) goalRing(g, ballCol(g.c)); ctx.restore();
+  }));
+  const f0 = sim.fingers.values().next().value;
+  for (const b of sim.balls) {
+    if (b.st === 'in' && b.t >= 0.35) continue;
+    let k = 1; if (b.st === 'in') k = Math.max(0, 1 - b.t / 0.35); if (b.st === 'fell') k = Math.max(0, 1 - b.t / 0.5);
+    const gl = d.goals.find(q => q.c === b.c) || d.goals[0], tgt = f0 ? [f0.x - b.x, f0.y - b.y] : [gl.x - b.x, gl.y - b.y], sp = Math.hypot(b.vx, b.vy);
+    drawPom(ctx, ox + b.x * sc, oy + b.y * sc, MC.BALL_R * sc, popStyle(R, { color: ballCol(b.c), face: b.c === 'rosa' ? 'f_normal' : S.equip.f, acc: b.c === 'rosa' ? 'a_none' : S.equip.a, ang: Math.atan2(b.vy, b.vx), sp, sq: b.sq, sqx: b.sqx, sqy: b.sqy, look: tgt, blink: (G.timeNow + b.i * 1.7 + R.blinkT) % 4.2 > 4.05, scared: sp > 9, k }));
+    if (b.sq > 0) b.sq = Math.max(0, b.sq - 0.07);
+  }
+  blit(layer(R, 'over', () => { ctx.fillStyle = '#E7D3AA'; ctx.beginPath(); ctx.rect(ox - 2, oy - 2, bw + 4, bh + 4); ctx.roundRect(ox, oy, bw, bh, 22); ctx.fill('evenodd'); ctx.save(); rr(ox, oy, bw, bh, 22); ctx.clip(); for (const w of d.walls) feltBlock(w.x, w.y, w.w, w.h, '#F2877B', '#C9665B'); ctx.restore(); stitch(); }));
+  for (const f of sim.fingers.values()) { ctx.strokeStyle = 'rgba(255,255,255,' + (0.55 * f.env) + ')'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(ox + f.x * sc, oy + f.y * sc, sim.P.radius * 0.55 * sc * (1.05 + 0.1 * Math.sin(G.timeNow * 8)), 0, TAU); ctx.stroke(); }
+  drawParts(R);
+}
+function renderRope(R) {
+  const sim = R.sim, d = R.def, c = sim.core, bw = W * sc, bh = H * sc;
+  ctx.save(); if (R.shake > 0) { R.shake -= 1 / 60; const a = 5 * Math.max(0, R.shake / 0.26); ctx.translate((Math.random() - 0.5) * 2 * a, (Math.random() - 0.5) * 2 * a); }
+  blit(layer(R, 'base', () => {
+    ctx.fillStyle = '#F6E9CF'; ctx.fillRect(0, 0, vw, vh); boardFrame(); const gr = ctx.createLinearGradient(0, oy, 0, oy + bh); gr.addColorStop(0, '#B7BDF5'); gr.addColorStop(1, '#8F98E6');
+    ctx.save(); rr(ox, oy, bw, bh, 22); ctx.clip(); ctx.fillStyle = gr; ctx.fillRect(ox, oy, bw, bh); ctx.globalAlpha = 0.28; ctx.fillStyle = ctx.createPattern(quilt, 'repeat'); ctx.fillRect(ox, oy, bw, bh); ctx.globalAlpha = 1;
+    for (const s2 of d.spikes || []) { const X = ox + s2.x * sc, Y = oy + s2.y * sc, w = s2.w * sc, hh = s2.h * sc, n = Math.max(1, Math.round(s2.w / 0.5)), tw = w / n; ctx.fillStyle = '#5B3F5E'; for (let i = 0; i < n; i++) { ctx.beginPath(); ctx.moveTo(X + i * tw, Y + hh); ctx.lineTo(X + i * tw + tw / 2, Y); ctx.lineTo(X + (i + 1) * tw, Y + hh); ctx.closePath(); ctx.fill(); } }
+    for (const s2 of d.solids) feltBlock(s2.x, s2.y, s2.w, s2.h, s2.y >= 13 ? '#9C8FD8' : '#F2877B', s2.y >= 13 ? '#7B6FBE' : '#C9665B');
+    goalRing({ x: d.goal[0], y: d.goal[1] }, ballCol('sol')); ctx.restore();
+  }));
+  ctx.save(); rr(ox, oy, bw, bh, 22); ctx.clip();
+  const cl = d.cloth, M = sim.M, pts = []; for (let i = 0; i <= M; i++) pts.push([ox + (cl.x0 + i * sim.sp) * sc, oy + (cl.y + sim.d[i]) * sc]);
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts) ctx.lineTo(p[0], p[1]); ctx.lineTo(pts[M][0], oy + bh); ctx.lineTo(pts[0][0], oy + bh); ctx.closePath();
+  ctx.fillStyle = '#7CCDB9'; ctx.fill(); ctx.strokeStyle = '#E8FFF7'; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts) ctx.lineTo(p[0], p[1]); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.6; ctx.setLineDash([5, 6]); ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1] + 9); for (const p of pts) ctx.lineTo(p[0], p[1] + 9); ctx.stroke(); ctx.setLineDash([]);
+  for (const t of sim.threads) {
+    if (!t.alive) continue; const s2 = Math.min(1, t.T / sim.P.tmax), warn = s2 > 0.65, dist = Math.hypot(c.x - t.ax, c.y - t.ay), slack = Math.max(0, t.L - dist), sag = Math.sqrt(3 * dist * slack / 8) * sc * 2 + (warn ? Math.sin(G.timeNow * 60) * s2 * 1.2 : 0);
+    const path = dy => { ctx.beginPath(); const X1 = ox + t.ax * sc, Y1 = oy + (t.ay + dy) * sc, X2 = ox + c.x * sc, Y2 = oy + (c.y + dy) * sc; ctx.moveTo(X1, Y1); ctx.quadraticCurveTo((X1 + X2) / 2 + sim.gx * sag, (Y1 + Y2) / 2 + sim.gy * sag, X2, Y2); };
+    ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(40,40,100,0.25)'; ctx.lineWidth = 7; path(0.12); ctx.stroke();
+    const col = YARN[t.idx % YARN.length]; ctx.strokeStyle = warn ? 'rgb(' + Math.round(242 - (s2 - 0.65) / 0.35 * 16) + ',' + Math.round(135 - (s2 - 0.65) / 0.35 * 83) + ',' + Math.round(123 - (s2 - 0.65) / 0.35 * 71) + ')' : col; ctx.lineWidth = 5 + (warn ? s2 * 2.5 : 0); path(0); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 6]); path(0); ctx.stroke(); ctx.setLineDash([]);
+  }
+  R.whips = R.whips.filter(w => { w.life -= 1 / 60; if (w.life <= 0) return false; const u = 1 - w.life / 0.35; ctx.strokeStyle = w.col; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); const ex = w.ax + (w.bx - w.ax) * (1 - u) * 0.5 + Math.sin(u * 22 + w.seed) * 0.35 * (1 - u), ey = w.ay + (w.by - w.ay) * (1 - u) * 0.5; ctx.moveTo(ox + w.ax * sc, oy + w.ay * sc); ctx.lineTo(ox + ex * sc, oy + ey * sc); ctx.stroke(); return true; });
+  ctx.restore();
+  let k = 1; if (c.st === 'in') k = Math.max(0, 1 - c.t / 0.35); if (c.st === 'dead') k = Math.max(0, 1 - c.t / 0.25);
+  const sp = Math.hypot(c.vx, c.vy); drawPom(ctx, ox + c.x * sc, oy + c.y * sc, CC.CORE_R * sc, popStyle(R, { ang: Math.atan2(c.vy, c.vx), sp, sq: c.sq, sqx: c.sqx, sqy: c.sqy, look: [d.goal[0] - c.x, d.goal[1] - c.y], blink: (G.timeNow + R.blinkT) % 4.2 > 4.05, scared: c.stress > 0.75 || sp > 10, k })); if (c.sq > 0) c.sq = Math.max(0, c.sq - 0.05);
+  blit(layer(R, 'over', () => { for (const t of sim.threads) { const X = ox + t.ax * sc, Y = oy + t.ay * sc, r = 0.34 * sc; ctx.fillStyle = 'rgba(30,30,90,0.3)'; ctx.beginPath(); ctx.arc(X + 2, Y + 4, r, 0, TAU); ctx.fill(); ctx.fillStyle = '#FFF4DC'; ctx.beginPath(); ctx.arc(X, Y, r, 0, TAU); ctx.fill(); ctx.strokeStyle = '#D9C193'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = '#B79B66'; for (const [a2, b2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.beginPath(); ctx.arc(X + a2 * r * 0.28, Y + b2 * r * 0.28, r * 0.1, 0, TAU); ctx.fill(); } } stitch(); }));
+  if (sim.pull) { const px = ox + sim.pull.x * sc; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(px, oy + (cl.y + sim.pull.depth * 0.5) * sc, 0.5 * sc, 0, TAU); ctx.stroke(); }
+  if (R.ptr && R.pid !== null && S.aim === 'tirachinas' && R.p0) { ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(ox + R.p0.x * sc, oy + R.p0.y * sc); ctx.lineTo(ox + R.ptr.x * sc, oy + R.ptr.y * sc); ctx.stroke(); ctx.setLineDash([]); }
+  if (Math.abs(sim.gx) > 0.05) { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '600 13px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('Gravedad ' + (sim.gx > 0 ? '→' : '←'), ox + 14, oy + 24); }
+  ctx.restore(); drawParts(R);
+}
+function drawParts(R) {
+  for (let i = R.parts.length - 1; i >= 0; i--) { const p = R.parts[i]; p.life -= 1 / 60; if (p.life <= 0) { R.parts.splice(i, 1); continue; } p.vy += 14 / 60; p.x += p.vx / 60; p.y += p.vy / 60; ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = p.c; ctx.save(); ctx.translate(ox + p.x * sc, oy + p.y * sc); ctx.rotate(p.life * 8); ctx.fillRect(-p.r / 2 - 2, -p.r / 4 - 1, p.r + 4, p.r / 2 + 2); ctx.restore(); ctx.globalAlpha = 1; }
+}
+
+/* ---------- Puzle de colores ---------- */
+function pzGeom(P) { const side = Math.min(vw - 24, vh - 190, 430), cell = side / P.N; return { side, cell, x0: (vw - side) / 2, y0: 70 + Math.max(0, (vh - 190 - side) / 2) }; }
+function pattern(g, id, x, y, s) {
+  g.save(); g.beginPath(); g.rect(x, y, s, s); g.clip(); g.strokeStyle = 'rgba(40,30,50,0.32)'; g.fillStyle = 'rgba(40,30,50,0.32)'; g.lineWidth = Math.max(1.5, s * 0.05);
+  if (id === 1) { for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { g.beginPath(); g.arc(x + s * (0.2 + i * 0.3), y + s * (0.2 + j * 0.3), s * 0.05, 0, TAU); g.fill(); } }
+  else if (id === 2) { for (let i = -3; i < 7; i++) { g.beginPath(); g.moveTo(x + i * s * 0.25, y + s); g.lineTo(x + i * s * 0.25 + s, y); g.stroke(); } }
+  else if (id === 3) { g.fillRect(x, y, s / 2, s / 2); g.fillRect(x + s / 2, y + s / 2, s / 2, s / 2); }
+  else if (id === 4) { for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(x, y + i * s * 0.25); g.lineTo(x + s, y + i * s * 0.25); g.stroke(); } }
+  else if (id === 5) { for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { const cx = x + s * (0.28 + i * 0.44), cy = y + s * (0.28 + j * 0.44); g.beginPath(); g.moveTo(cx - s * 0.08, cy); g.lineTo(cx + s * 0.08, cy); g.moveTo(cx, cy - s * 0.08); g.lineTo(cx, cy + s * 0.08); g.stroke(); } }
+  else if (id === 6) { g.beginPath(); g.moveTo(x, y + s * 0.3); for (let i = 0; i < 6; i++) g.lineTo(x + s * (i + 1) / 6, y + s * (i % 2 ? 0.3 : 0.5)); g.moveTo(x, y + s * 0.7); for (let i = 0; i < 6; i++) g.lineTo(x + s * (i + 1) / 6, y + s * (i % 2 ? 0.7 : 0.9)); g.stroke(); }
+  else if (id === 7) { g.beginPath(); g.arc(x + s / 2, y + s / 2, s * 0.3, 0, TAU); g.stroke(); }
+  g.restore();
+}
+function renderPuzzle(P) {
+  const { side, cell, x0, y0 } = pzGeom(P), N = P.N;
+  blit(layer(P, 'cells', () => {
+    ctx.fillStyle = '#F6E9CF'; ctx.fillRect(0, 0, vw, vh); ctx.fillStyle = '#CDB787'; rr(x0 - 10, y0 - 6, side + 20, side + 20, 24); ctx.fill(); ctx.fillStyle = '#E7D3AA'; rr(x0 - 10, y0 - 10, side + 20, side + 20, 24); ctx.fill();
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const g = P.reg[r][c], X = x0 + c * cell, Y = y0 + r * cell; ctx.fillStyle = REGCOL[g % 8]; ctx.fillRect(X, Y, cell, cell); pattern(ctx, g % 8, X, Y, cell);
+      ctx.strokeStyle = 'rgba(74,59,71,0.55)'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); if (c < N - 1 && P.reg[r][c + 1] !== g) { ctx.moveTo(X + cell, Y); ctx.lineTo(X + cell, Y + cell); } if (r < N - 1 && P.reg[r + 1][c] !== g) { ctx.moveTo(X, Y + cell); ctx.lineTo(X + cell, Y + cell); } ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(X, Y, cell, cell);
+    }
+  }));
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const X = x0 + c * cell, Y = y0 + r * cell;
+    if (P.cells[r][c] === 1) { ctx.fillStyle = 'rgba(40,30,50,0.55)'; ctx.beginPath(); ctx.arc(X + cell / 2, Y + cell / 2, cell * 0.08, 0, TAU); ctx.fill(); }
+  }
+  let k = 0; for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (P.cells[r][c] === 2) {
+    const X = x0 + (c + 0.5) * cell, Y = y0 + (r + 0.5) * cell; k++;
+    drawPom(ctx, X, Y, cell * 0.36, popStyle(null, { look: [0, 1], blink: (G.timeNow + k * 0.9) % 4.2 > 4.05, k: P.solved ? 1 : 1 }));
+    if (P.bad.has(r * N + c)) { ctx.strokeStyle = 'rgba(220,40,60,' + (0.55 + 0.4 * Math.sin(G.timeNow * 9)) + ')'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(X, Y, cell * 0.46, 0, TAU); ctx.stroke(); }
+    if (P.locked.has(r * N + c)) { ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '600 ' + Math.round(cell * 0.26) + 'px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('pista', X, Y + cell * 0.52); }
+  }
+  $('pzcount').textContent = 'Pompones ' + k + ' de ' + N;
+  for (let i = P.parts.length - 1; i >= 0; i--) { const p = P.parts[i]; p.life -= 1 / 60; if (p.life <= 0) { P.parts.splice(i, 1); continue; } p.vy += 14 / 60; p.x += p.vx / 60; p.y += p.vy / 60; ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, p.r + 4, p.r / 2 + 2); ctx.globalAlpha = 1; }
+}
+function pzCheck(P) {
+  const N = P.N, pcs = []; for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (P.cells[r][c] === 2) pcs.push([r, c]);
+  const bad = CO.conflicts(P.reg, pcs); P.bad = new Set([...bad].map(i => pcs[i][0] * N + pcs[i][1]));
+  if (pcs.length === N && bad.size === 0 && !P.solved) { P.solved = true; P.state = 'won'; P.winDelay = 0; arpeggio(); const g = pzGeom(P); for (let k = 0; k < 40; k++) { const a = Math.random() * TAU, s = 3 + Math.random() * 6; P.parts.push({ x: vw / 2, y: g.y0 + g.side / 2, vx: Math.cos(a) * s * 8, vy: Math.sin(a) * s * 8 - 40, r: Math.random() * 6, life: 1.2, c: CONF[k % CONF.length] }); } }
+}
+function pzTap(P, r, c) {
+  if (P.solved || P.locked.has(r * P.N + c)) return; P.cells[r][c] = (P.cells[r][c] + 1) % 3; const v = P.cells[r][c]; if (v === 2) note(3 + (r + c) % 4, 0.12, 0.12, 'triangle'); else if (v === 1) slide(300, 260, 0.05, 0.05); else slide(240, 180, 0.06, 0.05); vib(6); pzCheck(P);
+}
+function pzHint(P) {
+  if (P.solved) return; const N = P.N; let tgt = null;
+  for (let r = 0; r < N && !tgt; r++) if (P.cells[r][P.sol[r]] !== 2) tgt = [r, P.sol[r]];
+  if (!tgt) return; const [r, c] = tgt;
+  for (let cc = 0; cc < N; cc++) if (cc !== c && P.cells[r][cc] === 2 && !P.locked.has(r * N + cc)) P.cells[r][cc] = 0;
+  for (let rr2 = 0; rr2 < N; rr2++) if (rr2 !== r && P.cells[rr2][c] === 2 && !P.locked.has(rr2 * N + c)) P.cells[rr2][c] = 0;
+  P.cells[r][c] = 2; P.locked.add(r * N + c); P.hints++; note(5, 0.2, 0.12, 'sine'); pzCheck(P);
+}
+
+/* ---------- Escena y bucle ---------- */
+function renderScene() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); if (G.scene !== 'room' && G.scene !== 'puzzle') { ctx.fillStyle = '#F6E9CF'; ctx.fillRect(0, 0, vw, vh); }
+  if (G.scene === 'room' && G.room) { if (G.room.kind === 'mem') renderMem(G.room); else renderRope(G.room); }
+  else if (G.scene === 'puzzle' && G.puzzle) renderPuzzle(G.puzzle);
+}
+function checkRoom(R) {
+  if (R.state === 'play') { if (R.sim.state === 'won') { R.state = 'won'; R.winDelay = 0; } else if (R.sim.state === 'dead') restartRoom(); }
+}
+function advance(dt) {
+  G.timeNow += dt;
+  if (G.busy) return;
+  if (G.scene === 'room' && G.room) {
+    const R = G.room; if (R.state === 'won') { R.winDelay += dt; if (R.winDelay > 0.45) { R.state = 'done'; onWon(R); } return; }
+    if (R.state !== 'play') return;
+    if (R.kind === 'mem') { R.acc += dt; const DT = MC.DT; while (R.acc >= DT) { R.sim.step(); R.acc -= DT; if (R.sim.state !== 'play') break; } }
+    else { if (R.freeze > 0) R.freeze -= dt; else { R.acc += dt; const DT = CC.DT; while (R.acc >= DT) { R.sim.step(); R.acc -= DT; if (R.sim.state !== 'play') break; } } }
+    checkRoom(R);
+  } else if (G.scene === 'puzzle' && G.puzzle) {
+    const P = G.puzzle; if (P.state === 'won') { P.winDelay += dt; if (P.winDelay > 0.7) { P.state = 'done'; onWon(P); } }
+  }
+}
+let lastT = 0;
+function frame(t) {
+  const raw = (t - lastT) / 1000, dt = Math.min(0.05, raw); lastT = t; if (!G.paused) advance(dt); renderScene();
+  /* Resolución adaptativa: si el dispositivo va lento de forma sostenida, se baja la densidad de píxeles (mínimo 1) */
+  if (G.scene === 'room' || G.scene === 'puzzle') { G.ema = G.ema ? G.ema * 0.95 + raw * 0.05 : raw; if (++G.slow > 90 && G.ema > 0.026 && (G.dprCap || 2) > 1 && !G.busy && document.visibilityState === 'visible') { G.dprCap = Math.max(1, (G.dprCap || 2) - 0.25); G.slow = 0; G.ema = 0; resize(); } }
+  requestAnimationFrame(frame);
+}
+function restartRoom(manual) { const R = G.room; if (!R) return; R.attempts++; const keep = R.attempts, kind = R.kind; buildSim(R); R.attempts = keep; R.sim.started = true; if (kind === 'rope') R.sim.started = true; }
+
+/* ---------- Entrada ---------- */
+function pos(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+cv.addEventListener('pointerdown', e => {
+  if (G.busy) return; initAudio(); const [px, py] = pos(e);
+  if (G.scene === 'puzzle' && G.puzzle) { const P = G.puzzle, g = pzGeom(P), c = Math.floor((px - g.x0) / g.cell), r = Math.floor((py - g.y0) / g.cell); if (r >= 0 && c >= 0 && r < P.N && c < P.N) pzTap(P, r, c); return; }
+  const R = G.room; if (G.scene !== 'room' || !R || R.state !== 'play') return; hint('');
+  if (R.kind === 'mem') {
+    const wx = clamp((px - ox) / sc, 0.05, W - 0.05), wy = clamp((py - S.offset - oy) / sc, 0.05, H - 0.05); cv.setPointerCapture(e.pointerId); R.sim.fingers.set(e.pointerId, { x: wx, y: wy, env: 0 }); R.sim.started = true; R.touches++; slide(190, 120, 0.09, 0.07);
+  } else {
+    const wx = (px - ox) / sc, wy = (py - oy) / sc, sim = R.sim, idx = sim.nearestThread(wx, wy, Math.max(0.7, 30 / sc));
+    sim.started = true; if (idx >= 0) { sim.cut(idx); return; }
+    if (wy > R.def.cloth.y - 5) { R.pid = e.pointerId; cv.setPointerCapture(e.pointerId); R.p0 = { x: wx, y: wy }; ropePull(R, wx, wy); }
+  }
+});
+function ropePull(R, wx, wy) { const cl = R.def.cloth, p0 = R.p0, depth = clamp(0.65 + Math.max(0, wy - p0.y) * 0.5, 0.6, 1.5), x = S.aim === 'tirachinas' ? p0.x - (wx - p0.x) : wx; R.sim.setPull(clamp(x, cl.x0, cl.x1), depth); R.ptr = { x: wx, y: wy }; }
+cv.addEventListener('pointermove', e => {
+  const R = G.room; if (G.busy || G.scene !== 'room' || !R || R.state !== 'play') return; const [px, py] = pos(e);
+  if (R.kind === 'mem') { const f = R.sim.fingers.get(e.pointerId); if (!f) return; const wx = clamp((px - ox) / sc, 0.05, W - 0.05), wy = clamp((py - S.offset - oy) / sc, 0.05, H - 0.05); R.trazo += Math.hypot(wx - f.x, wy - f.y); f.x = wx; f.y = wy; }
+  else if (R.pid === e.pointerId) ropePull(R, (px - ox) / sc, (py - oy) / sc);
+});
+const up = e => { const R = G.room; if (!R) return; if (R.kind === 'mem') R.sim.fingers.delete(e.pointerId); else if (R.pid === e.pointerId) { R.sim.releasePull(); R.pid = null; R.ptr = null; } };
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up); window.addEventListener('blur', () => { if (G.room) { G.room.sim.fingers && G.room.sim.fingers.clear && G.room.sim.fingers.clear(); if (G.room.kind === 'rope') G.room.sim.releasePull(); } });
+
+/* ---------- Estrellas, tarjeta de victoria ---------- */
+function starsFor(R) {
+  const first = R.attempts === 0; let eff, effTxt;
+  if (R.kind === 'mem') { eff = R.trazo <= R.meta.par; effTxt = 'Trazo corto (' + R.trazo.toFixed(0) + ' de ' + R.meta.par.toFixed(0) + ')'; }
+  else { const a = R.sim.stats.cuts + R.sim.stats.pulls; eff = a <= R.meta.parActions; effTxt = 'Pocas acciones (' + a + ' de ' + R.meta.parActions + ')'; }
+  return { n: 1 + (first ? 1 : 0) + (eff ? 1 : 0), crit: [['Completado', true], ['A la primera', first], [effTxt, eff]] };
+}
+function showWin(o) {
+  $('winT').textContent = o.title; $('winS').textContent = o.sub || ''; const row = $('winStars'); row.innerHTML = '';
+  for (let i = 0; i < o.max; i++) { const s = document.createElement('span'); s.textContent = '★'; if (i < o.n) { s.className = 'on'; s.style.animationDelay = (G.fast ? 0 : i * 160) + 'ms'; } row.appendChild(s); }
+  const ul = $('winCrit'); ul.innerHTML = ''; for (const [t, v] of o.crit || []) { const li = document.createElement('li'); li.className = v ? '' : 'no'; const a = document.createElement('span'), b = document.createElement('span'); a.textContent = t; b.textContent = v ? '✓' : '✗'; li.appendChild(a); li.appendChild(b); ul.appendChild(li); }
+  const cta = $('winCta'); cta.textContent = o.cta[0]; cta.onclick = () => { $('win').hidden = true; o.cta[1](); };
+  const rt = $('winRetry'); rt.textContent = o.sec ? o.sec[0] : 'Repetir'; rt.onclick = () => { $('win').hidden = true; (o.sec ? o.sec[1] : retryCurrent)(); };
+  $('winMenu').onclick = () => { $('win').hidden = true; toHub(); }; $('win').hidden = false; G.win = o;
+}
+function onWon(X) {
+  let n, crit, max = 3, key = '';
+  if (X.kind === 'col') { max = 5; n = Math.max(1, 5 - X.hints); crit = [['Resuelto', true], ['Pistas usadas', X.hints === 0], ['Estrellas: ' + n + ' de 5', true]]; }
+  else { const s = starsFor(X); n = s.n; crit = s.crit; }
+  if (G.mode === 'cubo') key = 'c' + G.layer + 'mrp'[G.stage]; else if (G.mode === 'mem') key = X.kind === 'col' ? 'mp' + G.block : 'm' + G.idx; else if (G.mode === 'rope') key = 'r' + G.idx;
+  const gain = key ? award(key, n) : 0; const sub = key ? (gain > 0 ? '+' + gain + ' ★ nueva' + (gain > 1 ? 's' : '') : 'Sin estrellas nuevas (ya tenías ' + (S.best[key] || 0) + ')') : 'Práctica: no da estrellas';
+  const base = { n, max, crit, sub };
+  if (G.mode === 'cubo') {
+    if (G.stage < 2) showWin(Object.assign(base, { title: X.kind === 'rope' ? '¡Sala de cuerdas lista!' : '¡Sala lista!', cta: [G.stage === 0 ? 'Girar el cubo' : 'A la puerta', () => cuboNext()] }));
+    else showWin(Object.assign(base, { title: '¡Puzle resuelto!', cta: ['Abrir la puerta', () => cuboNext()] }));
+  } else if (G.mode === 'mem') {
+    if (X.kind === 'col') showWin(Object.assign(base, { title: '¡Puzle resuelto!', cta: ['Seguir', () => startMem(G.idx + 1)], sec: ['Menú', toHub] }));
+    else if (G.idx % 9 === 0) { G.block = G.idx / 9; showWin(Object.assign(base, { title: '¡Nivel ' + G.idx + '!', sub: sub + '. Hay un puzle opcional de 5 ★.', cta: ['Puzle opcional (+5 ★)', () => startMemPuzzle()], sec: ['Seguir sin puzle', () => startMem(G.idx + 1)] })); }
+    else showWin(Object.assign(base, { title: '¡Nivel ' + G.idx + '!', cta: ['Siguiente nivel', () => startMem(G.idx + 1)] }));
+  } else if (G.mode === 'rope') showWin(Object.assign(base, { title: '¡Sala ' + G.idx + '!', cta: ['Siguiente sala', () => startRope(G.idx + 1)] }));
+  else if (G.mode === 'col') showWin(Object.assign(base, { title: '¡Resuelto!', cta: ['Otro puzle', () => startCol(X.N)], sec: ['Cambiar tamaño', startColChoice] }));
+}
+function retryCurrent() { if (G.scene === 'puzzle') { G.puzzle = newPuzzle(G.puzzle.N, G.puzzle.seed || 1, G.puzzle.meta); G.puzzle.seed = 1; return; } const R = G.room; if (!R) return; R.attempts++; const keep = R.attempts; buildSim(R); R.attempts = keep; R.sim.started = true; }
+
+/* ---------- Cubo 3D de transición ---------- */
+function snapshot() {
+  renderScene(); const s = document.createElement('canvas'); s.width = s.height = 420; const g = s.getContext('2d'), bwPx = W * sc * dpr, sx = ox * dpr, sy = (oy + (H * sc - W * sc) / 2) * dpr;
+  g.drawImage(cv, sx, sy, bwPx, bwPx, 0, 0, 420, 420); return s.toDataURL('image/jpeg', 0.82);
+}
+const FACE_T = { f: 'rotateY(0deg)', r: 'rotateY(90deg)', b: 'rotateY(180deg)', l: 'rotateY(-90deg)', t: 'rotateX(90deg)', u: 'rotateX(-90deg)' };
+function buildCube(snapA, layer) {
+  const cube = $('cube'), s = Math.round(Math.min(vw * 0.78, vh * 0.42, 340)); cube.innerHTML = ''; const pal = cubePal(); cube.style.width = cube.style.height = s + 'px'; cube.style.marginLeft = cube.style.marginTop = (-s / 2) + 'px';
+  const cols = { f: null, r: null, b: pal[0], l: pal[1], t: pal[2], u: pal[(layer + 1) % 3] };
+  for (const k of Object.keys(FACE_T)) { const f = document.createElement('div'); f.className = 'face'; f.dataset.f = k; f.style.transform = FACE_T[k] + ' translateZ(' + (s / 2) + 'px)'; if (cols[k]) f.style.background = cols[k]; cube.appendChild(f); }
+  cube.querySelector('[data-f=f]').style.backgroundImage = 'url(' + snapA + ')'; return s;
+}
+function buildShell(s, layer) {
+  const sh = $('shell'), pal = cubePal(), e = Math.round(s * 1.2); sh.innerHTML = ''; sh.style.width = sh.style.height = e + 'px'; sh.style.marginLeft = sh.style.marginTop = (-e / 2) + 'px'; sh.style.opacity = 0; sh.style.transition = 'none'; sh.style.transform = 'translateZ(-420px) rotateX(-14deg)';
+  for (const k of Object.keys(FACE_T)) { const f = document.createElement('div'); f.className = 'sface'; f.dataset.f = k; f.style.transform = FACE_T[k] + ' translateZ(' + (e / 2) + 'px)'; f.style.background = pal[(layer + 2) % 3]; f.style.transition = 'transform .8s cubic-bezier(.5,0,.3,1), opacity .8s'; sh.appendChild(f); }
+  return e;
+}
+async function cubeFlip(prepare, peel) {
+  G.busy = true; $('bar').hidden = true; $('pzbar').hidden = true; hint(''); const snapA = snapshot();
+  if (G.fast || REDUCED) { await prepare(); G.busy = false; return; }
+  const stage = $('cubeStage'), cube = $('cube'); stage.hidden = false; const s = buildCube(snapA, G.layer); let e = 0; if (peel) e = buildShell(s, G.layer); else $('shell').innerHTML = '';
+  const to = (tr, ms) => { cube.style.transition = 'transform ' + ms + 'ms cubic-bezier(.4,0,.2,1)'; cube.style.transform = tr; return wait(ms + 40); };
+  cube.style.transition = 'none'; cube.style.transform = 'translateZ(0px) rotateX(0deg) rotateY(0deg)'; await wait(60);
+  await prepare(); const snapB = snapshot(); cube.querySelector('[data-f=r]').style.backgroundImage = 'url(' + snapB + ')';
+  await to('translateZ(-420px) rotateX(-16deg) rotateY(-24deg)', 650);
+  if (peel) { const sh = $('shell'); sh.style.opacity = 1; await wait(250); sh.querySelectorAll('.sface').forEach(f => { const k = f.dataset.f; f.style.transform = FACE_T[k] + ' translateZ(' + (e / 2 + 240) + 'px)'; f.style.opacity = 0; }); await wait(850); sh.innerHTML = ''; }
+  await to('translateZ(-420px) rotateX(-16deg) rotateY(-90deg)', 800); await to('translateZ(0px) rotateX(0deg) rotateY(-90deg)', 650);
+  stage.hidden = true; G.busy = false;
+}
+async function openDoor() { if (G.fast || REDUCED) return; const d = $('door'), f = $('dframe'); f.classList.remove('open'); $('doorT').textContent = 'Puerta cerrada'; d.hidden = false; await wait(450); f.classList.add('open'); $('doorT').textContent = '¡Abierta!'; note(7, 0.3, 0.12, 'sine'); await wait(1150); d.hidden = true; }
+
+/* ---------- Flujos de juego ---------- */
+function setHud(label, showRestart) { $('bar').hidden = false; $('lbl').textContent = label; $('restart').style.display = showRestart === false ? 'none' : ''; updateBadge(); }
+function show(scene) { G.scene = scene; $('hub').hidden = true; $('shop').hidden = true; $('win').hidden = true; $('pzbar').hidden = scene !== 'puzzle'; if (scene === 'room' || scene === 'puzzle') $('bar').hidden = false; }
+function toHub() { G.scene = 'hub'; G.room = null; G.puzzle = null; $('bar').hidden = true; $('pzbar').hidden = true; $('win').hidden = true; $('panel').hidden = true; hint(''); refreshHub(); $('hub').hidden = false; }
+function refreshHub() { $('mCuboS').textContent = 'Capa ' + S.cubeLayer; $('mMemS').textContent = 'Nivel ' + S.mem; $('mRopeS').textContent = 'Sala ' + S.rope; updateBadge(); }
+const STAGE_NAME = ['Membrana', 'Cuerdas', 'Puerta'];
+function prepareCuboStage() {
+  const st = G.stage;
+  if (st === 0) { G.room = memRoomFor(G.layer); G.puzzle = null; show('room'); hint(G.room.meta.hint); G.room.sim.started = true; }
+  else if (st === 1) { const r = ropeRoomFor(ropeIndexForLayer(G.layer), G.layer); if (!r) { G.stage = 2; return prepareCuboStage(); } G.room = r; G.puzzle = null; show('room'); hint(r.meta.hint); }
+  else { const P = newPuzzle(CO.sizeForLayer(G.layer), G.layer * 1000 + 17, { door: true }); P.seed = G.layer * 1000 + 17; G.puzzle = P; G.room = null; show('puzzle'); hint('Un pompón por color, fila y columna. No pueden tocarse, ni en diagonal. Toca una vez para marcar y dos para poner.'); }
+  setHud('Capa ' + G.layer + ' · ' + STAGE_NAME[st], st !== 2); $('restart').setAttribute('aria-label', st === 2 ? 'Limpiar el puzle' : 'Reiniciar la sala'); G.acc = 0;
+}
+async function startCubo(layer) { G.mode = 'cubo'; G.layer = layer || S.cubeLayer; G.stage = 0; S.cubeLayer = Math.max(S.cubeLayer, G.layer); save(); $('hub').hidden = true; prepareCuboStage(); }
+async function cuboNext() {
+  if (G.stage < 2) { G.stage++; await cubeFlip(async () => { prepareCuboStage(); }, false); }
+  else { await openDoor(); G.layer++; G.stage = 0; S.cubeLayer = Math.max(S.cubeLayer, G.layer); save(); await cubeFlip(async () => { prepareCuboStage(); }, true); toast('Capa ' + G.layer + ': cambia la paleta del cubo.'); }
+}
+function startMem(i) {
+  G.mode = 'mem'; G.idx = Math.max(1, i); S.mem = Math.max(S.mem, G.idx); save(); $('hub').hidden = true;
+  const t = G.idx <= 8 ? MC.TUTORIAL[G.idx - 1] : null; const d = t || MC.genRoomVerified(3 + Math.ceil((G.idx - 8) / 2), G.idx * 13 + 1);
+  G.room = newRoom('mem', d, { hint: t ? t.hint : '', par: MC.parTrazo(d) }); G.puzzle = null; show('room'); setHud('Membrana · nivel ' + G.idx); hint(G.room.meta.hint); G.room.sim.started = true;
+}
+function startMemPuzzle() { G.mode = 'mem'; const N = Math.min(8, 3 + G.block), P = newPuzzle(N, G.block * 7919 + 5, { opt: true }); P.seed = G.block * 7919 + 5; G.puzzle = P; G.room = null; show('puzzle'); setHud('Puzle opcional · ' + N + 'x' + N, false); hint('Puzle opcional: 5 estrellas. Las pistas restan una estrella cada una.'); }
+function startRope(i) {
+  if (!sortedPool.length) { toast('No hay salas de cuerdas en esta versión.'); return; }
+  G.mode = 'rope'; G.idx = Math.max(1, i); S.rope = Math.max(S.rope, G.idx); save(); $('hub').hidden = true; const r = ropeRoomFor(Math.min(G.idx - 1, sortedPool.length - 1), 1);
+  G.room = r; G.puzzle = null; show('room'); setHud('Cuerdas · sala ' + G.idx); hint(r.meta.hint);
+}
+function startCol(N) { G.mode = 'col'; const seed = Math.floor(Math.random() * 1e6); const P = newPuzzle(N, seed, { practice: true }); P.seed = seed; G.puzzle = P; G.room = null; $('hub').hidden = true; show('puzzle'); setHud('Práctica ' + N + 'x' + N, true); hint('Práctica sin estrellas. Un pompón por color, fila y columna, sin tocarse.'); }
+function startColChoice() { showWin({ title: 'Tamaño del puzle', sub: 'Elige la cuadrícula', n: 0, max: 0, crit: [], cta: ['5 x 5', () => startCol(5)], sec: ['7 x 7', () => startCol(7)] }); }
+function backToMenu() { toHub(); }
+
+/* ---------- Colección ---------- */
+let shopTab = 'c';
+function drawItemPreview(c, it) {
+  const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); const cx = c.width / 2, cy = c.height / 2;
+  if (it.cat === 'k') { it.val.forEach((col, i) => { g.fillStyle = col; g.beginPath(); g.roundRect(8 + i * 38, 26, 32, 32, 8); g.fill(); }); return; }
+  const o = { color: ballCol('sol'), face: 'f_normal', acc: 'a_none', look: [0, 1] }; if (it.cat === 'c') o.color = it.val; if (it.cat === 'a') o.acc = it.id; if (it.cat === 'f') o.face = it.id; drawPom(g, cx, cy + 4, 34, o);
+}
+function renderShop() {
+  const tabs = $('tabs'); tabs.innerHTML = ''; for (const k of Object.keys(CATS)) { const b = document.createElement('button'); b.className = 'tab' + (k === shopTab ? ' on' : ''); b.textContent = CATS[k]; b.onclick = () => { shopTab = k; renderShop(); }; tabs.appendChild(b); }
+  const grid = $('grid'); grid.innerHTML = '';
+  for (const it of ITEMS.filter(i => i.cat === shopTab)) {
+    const own = S.owned.includes(it.id), eq = S.equip[it.cat] === it.id, d = document.createElement('button'); d.className = 'item' + (eq ? ' eq' : '') + (own ? '' : ' lock');
+    const cvs = document.createElement('canvas'); cvs.width = 128; cvs.height = 128; drawItemPreview(cvs, it); const nm = document.createElement('b'); nm.textContent = it.name; const st = document.createElement('span'); st.textContent = eq ? 'En uso' : own ? 'Poner' : it.cost + ' ★';
+    d.appendChild(cvs); d.appendChild(nm); d.appendChild(st);
+    d.onclick = () => { if (own) { S.equip[it.cat] = it.id; save(); renderShop(); return; } if (S.stars >= it.cost) { S.stars -= it.cost; S.owned.push(it.id); S.equip[it.cat] = it.id; save(); updateBadge(); note(7, 0.25, 0.12, 'sine'); renderShop(); toast('¡' + it.name + ' desbloqueado!'); } else toast('Te faltan ' + (it.cost - S.stars) + ' ★. Se ganan jugando.'); };
+    grid.appendChild(d);
+  }
+}
+
+/* ---------- Menú, ajustes, botones ---------- */
+function paintOpts() { $('optSnd').textContent = 'Sonido: ' + (S.sound ? 'sí' : 'no'); $('aimD').classList.toggle('on', S.aim === 'directo'); $('aimT').classList.toggle('on', S.aim === 'tirachinas'); $('offR').value = S.offset; $('offO').textContent = S.offset; }
+let armedReset = 0;
+$('mCubo').onclick = () => { initAudio(); startCubo(S.cubeLayer); }; $('mMem').onclick = () => { initAudio(); startMem(S.mem); }; $('mRope').onclick = () => { initAudio(); startRope(S.rope); };
+$('mCol').onclick = () => { initAudio(); startColChoice(); }; $('mShop').onclick = () => { $('hub').hidden = true; $('shop').hidden = false; renderShop(); updateBadge(); };
+$('shopBack').onclick = () => { $('shop').hidden = true; refreshHub(); $('hub').hidden = false; };
+$('mEdit').onclick = () => { if (/(^|\.)github\.io$/.test(location.hostname) || location.hostname === 'localhost') location.href = 'membrana.html'; else toast('El editor de niveles está en el prototipo Membrana, en la página de pruebas.'); };
+$('mCfg').onclick = () => { paintOpts(); $('panel').hidden = false; }; $('cfg').onclick = () => { paintOpts(); $('panel').hidden = !$('panel').hidden; }; $('optClose').onclick = () => { $('panel').hidden = true; };
+$('optSnd').onclick = () => { S.sound = !S.sound; save(); if (S.sound) initAudio(); paintOpts(); };
+$('aimD').onclick = () => { S.aim = 'directo'; save(); paintOpts(); }; $('aimT').onclick = () => { S.aim = 'tirachinas'; save(); paintOpts(); };
+$('offR').oninput = e => { S.offset = Number(e.target.value); $('offO').textContent = S.offset; save(); };
+$('optReset').onclick = () => { if (armedReset) { clearTimeout(armedReset); armedReset = 0; S = defSave(); save(); updateBadge(); refreshHub(); $('panel').hidden = true; toast('Progreso borrado.'); } else { toast('Toca otra vez para borrar todo el progreso.'); armedReset = setTimeout(() => { armedReset = 0; }, 2800); } };
+$('back').onclick = backToMenu;
+$('restart').onclick = () => { if (G.busy) return; if (G.scene === 'puzzle' && G.puzzle) { const P = G.puzzle; for (let r = 0; r < P.N; r++) for (let c = 0; c < P.N; c++) if (!P.locked.has(r * P.N + c)) P.cells[r][c] = 0; pzCheck(P); } else if (G.room) { const R = G.room; R.attempts++; const k = R.attempts; buildSim(R); R.attempts = k; R.sim.started = true; } };
+$('pzHint').onclick = () => { if (G.puzzle && !G.busy) pzHint(G.puzzle); }; $('pzClear').onclick = () => $('restart').click();
+
+/* ---------- Ganchos de prueba ---------- */
+function botRoom(R) {
+  if (R.kind === 'mem') { const sim = R.sim, d = R.def, lead = (d.bot && d.bot.lead) || 1.3, adv = (d.bot && d.bot.adv) || 0.9; let wi = 0, last = 0, lx = null, ly = null, n = 0; sim.started = true;
+    while (n++ < 120 * 90 && sim.state === 'play') { const b = sim.balls.find(q => q.st === 'play'); if (!b) { sim.step(); continue; } const si = Math.min(b.i, d.route.length - 1), seg = d.route[si]; if (si !== last) { wi = 0; last = si; }
+      const t = seg[Math.min(wi, seg.length - 1)], dd = Math.hypot(t[0] - b.x, t[1] - b.y); if (dd < adv && wi < seg.length - 1) wi++; const l = Math.min(lead, dd), fx = b.x + (t[0] - b.x) / (dd || 1) * l, fy = b.y + (t[1] - b.y) / (dd || 1) * l;
+      if (lx !== null) R.trazo += Math.hypot(fx - lx, fy - ly); lx = fx; ly = fy; sim.fingers.set(1, { x: fx, y: fy, env: 1 }); sim.step(); }
+    sim.fingers.clear(); R.touches = 1; }
+  else { const r = CC.replay(R.def, R.meta.acts, 9); /* reproducción sobre una copia; se repite sobre la simulación viva */
+    const sim = R.sim, acts = R.meta.acts; let i = 0, rel = null, n = 0; while (n++ < 240 * 9 && sim.state === 'play') { while (i < acts.length && sim.time >= acts[i].t - 1e-9) { const a = acts[i++]; if (a.type === 'cut') sim.cut(a.i); else { sim.setPull(a.x, a.depth); rel = sim.time + a.hold; } } if (rel !== null && sim.time >= rel) { sim.releasePull(); rel = null; } sim.step(); } }
+  checkRoom(R);
+}
+function botPuzzle(P) { for (let r = 0; r < P.N; r++) P.cells[r][P.sol[r]] = 2; pzCheck(P); }
+window.__c = { G, get S() { return S; }, save, ITEMS, MC, CC, CO, sortedPool, startCubo, startMem, startRope, startCol, cuboNext, toHub, tick: advance, botRoom, botPuzzle, pzTap, pzHint, snapshot, renderScene, newPuzzle, memRoomFor, ropeRoomFor, resetSave() { S = defSave(); save(); updateBadge(); refreshHub(); }, setFast(v) { G.fast = v; }, setPaused(v) { G.paused = v; }, retryCurrent };
+
+updateBadge(); refreshHub(); resize(); requestAnimationFrame(frame);
+})();
+
+</script>
+</body>
+</html>
