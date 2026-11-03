@@ -111,6 +111,11 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 .dframe b{position:absolute;inset:0;display:grid;place-items:center;font-size:26px;font-weight:600;text-align:center;padding:0 12px}
 #pzbar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;justify-content:center;align-items:center;padding:8px 12px 14px;background:linear-gradient(transparent,var(--crema) 40%)}
 #pzbar[hidden]{display:none}
+#rbar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;justify-content:center;align-items:center;padding:8px 12px 14px;background:linear-gradient(transparent,var(--crema) 40%)}
+#rbar[hidden]{display:none}
+#rbar .pill{flex:none;padding:10px 16px}
+#fps{position:fixed;right:8px;bottom:6px;font:600 12px system-ui,sans-serif;color:#fff;background:rgba(40,40,100,.6);padding:3px 7px;border-radius:8px;pointer-events:none}
+#fps[hidden]{display:none}
 #pzbar .pill{flex:none;padding:10px 16px}
 #pzcount{font-weight:600;font-size:17px;min-width:92px;text-align:center}
 @media (prefers-reduced-motion:reduce){.card,.starsRow span.on{animation:none}.lcube{animation:none;transform:rotateX(-24deg) rotateY(25deg)}.hint{transition:none}}
@@ -132,6 +137,8 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 </div>
 <div class="hint gone" id="hint"></div>
 <div id="pzbar" hidden><button class="pill" id="pzHint">Pista</button><div id="pzcount"></div><button class="pill" id="pzClear">Limpiar</button></div>
+<div id="rbar" hidden><button class="pill" id="rDemo">Ver cómo</button><button class="pill" id="rSkip" hidden>Saltar sala</button></div>
+<div id="fps" hidden></div>
 <div class="toast" id="toast" hidden></div>
 
 <div class="screen" id="hub">
@@ -173,7 +180,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 
 <div class="panel" id="panel" hidden>
   <h3>Ajustes</h3>
-  <div class="row" style="margin-bottom:8px"><button class="pill" id="optSnd">Sonido: sí</button></div>
+  <div class="row" style="margin-bottom:8px"><button class="pill" id="optSnd">Sonido: sí</button><button class="pill" id="optFps">Mostrar fps</button></div>
   <p class="note">Control de la tela en las salas de cuerdas. Directo: la tela se hunde donde tocas y la bola sale hacia ese lado. Tirachinas: la tela se hunde en el lado contrario al que arrastras.</p>
   <div class="row" style="margin-bottom:10px"><button class="pill" id="aimD">Directo</button><button class="pill" id="aimT">Tirachinas</button></div>
   <div class="ctl"><label for="offR">Desfase del dedo en Membrana (px)</label><output id="offO"></output><input id="offR" type="range" min="0" max="100" step="2"></div>
@@ -658,7 +665,14 @@ function mirror(room) {
 }
 function mirrorActs(room, acts) { return acts.map(a => a.type === 'pull' ? Object.assign({}, a, { x: +(W - a.x).toFixed(3) }) : a); }
 
-const api = { W, H, DT, CORE_R, GOAL_R, RopeSim, solveRoom, replay, sampleRoom, sampleValid, mirror, mirrorActs, mulberry32 };
+/* ---------- Salas de aprendizaje hechas a mano (verificadas en las pruebas) ---------- */
+function tutRoom(anchors, core) { return { anchors, core, goal: [8, 11.1], cloth: { x0: 1.5, x1: 6, y: 13.4 }, solids: [{ x: 0, y: 13.4, w: 1.5, h: 1.6 }, { x: 6, y: 13.4, w: 4, h: 1.6 }, { x: 6, y: 12, w: 4, h: 0.6 }], spikes: [], g: [0, 1] }; }
+const TUTORIAL = [
+  { room: tutRoom([], [3.5, 12.8]), acts: [{ t: 0, type: 'pull', x: 4.18, depth: 0.9, hold: 0.3 }], min: 1, nsol: 34, hint: 'Pon el dedo en la tela, estírala hacia abajo y suelta. La bola sale hacia donde hundiste la tela.' },
+  { room: tutRoom([[3.5, 1.2]], [3.5, 7.5]), acts: [{ t: 0, type: 'cut', i: 0 }, { t: 0.35, type: 'pull', x: 4.18, depth: 0.9, hold: 0.3 }], min: 2, nsol: 91, hint: 'Toca el hilo para cortarlo. Cuando la bola caiga en la tela, lánzala como antes.' }
+];
+
+const api = { TUTORIAL, W, H, DT, CORE_R, GOAL_R, RopeSim, solveRoom, replay, sampleRoom, sampleValid, mirror, mirrorActs, mulberry32 };
 root.CuerdasCore = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -801,11 +815,13 @@ function ropeEntryFor(idx0) {
 function MC_rng(seed) { return MC.mulberry32(seed); }
 function ropeRoomFor(idx0, layer) {
   if (!sortedPool.length) return null;
-  const e = ropeEntryFor(idx0);
-  const h = idx0 === 0 ? 'Corta el hilo, tira de la tela hacia abajo y suelta para lanzar la bola al agujero.' : (idx0 === 1 ? 'Más profundidad, más impulso. Prueba a tirar a un lado.' : '');
+  const tut = G.mode === 'cubo' ? (layer <= 2 ? layer - 1 : -1) : (idx0 <= 1 ? idx0 : -1);
+  if (tut >= 0) { const t = CC.TUTORIAL[tut]; return newRoom('rope', t.room, { hint: t.hint, parActions: t.min + 1, acts: t.acts, min: t.min, tut: true }); }
+  const j = G.mode === 'cubo' ? idx0 : idx0 - 2, e = ropeEntryFor(j);
+  const h = j === 0 ? 'Ahora con trampolín y gravedad: corta el hilo en el momento justo y lanza.' : (j === 1 ? 'Más profundidad, más impulso. Prueba a tirar a un lado.' : '');
   return newRoom('rope', e.room, { hint: h, parActions: e.min + 1, acts: e.acts, min: e.min });
 }
-function ropeIndexForLayer(layer) { const n = sortedPool.length; return clamp(Math.round((layer - 1) * n / 12) + Math.floor(MC_rng(layer * 31)() * 3), 0, n - 1); }
+function ropeIndexForLayer(layer) { if (layer <= 3) return 0; const n = sortedPool.length; return clamp(Math.round((layer - 1) * n / 12) + Math.floor(MC_rng(layer * 31)() * 3), 0, n - 1); }
 function newPuzzle(N, seed, meta) { const p = CO.genPuzzle(N, seed); const P = { kind: 'col', N, reg: p.reg, sol: p.sol, cells: Array.from({ length: N }, () => new Array(N).fill(0)), locked: new Set(), hints: 0, solved: false, bad: new Set(), meta: meta || {}, winDelay: 0, state: 'play', parts: [], pulse: 0 }; return P; }
 
 /* ---------- Eventos de simulación ---------- */
@@ -890,6 +906,11 @@ function renderRope(R) {
   const sp = Math.hypot(c.vx, c.vy); drawPom(ctx, ox + c.x * sc, oy + c.y * sc, CC.CORE_R * sc, popStyle(R, { ang: Math.atan2(c.vy, c.vx), sp, sq: c.sq, sqx: c.sqx, sqy: c.sqy, look: [d.goal[0] - c.x, d.goal[1] - c.y], blink: (G.timeNow + R.blinkT) % 4.2 > 4.05, scared: c.stress > 0.75 || sp > 10, k })); if (c.sq > 0) c.sq = Math.max(0, c.sq - 0.05);
   blit(layer(R, 'over', () => { for (const t of sim.threads) { const X = ox + t.ax * sc, Y = oy + t.ay * sc, r = 0.34 * sc; ctx.fillStyle = 'rgba(30,30,90,0.3)'; ctx.beginPath(); ctx.arc(X + 2, Y + 4, r, 0, TAU); ctx.fill(); ctx.fillStyle = '#FFF4DC'; ctx.beginPath(); ctx.arc(X, Y, r, 0, TAU); ctx.fill(); ctx.strokeStyle = '#D9C193'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = '#B79B66'; for (const [a2, b2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.beginPath(); ctx.arc(X + a2 * r * 0.28, Y + b2 * r * 0.28, r * 0.1, 0, TAU); ctx.fill(); } } stitch(); }));
   if (sim.pull) { const px = ox + sim.pull.x * sc; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(px, oy + (cl.y + sim.pull.depth * 0.5) * sc, 0.5 * sc, 0, TAU); ctx.stroke(); }
+  if (sim.pull && R.pid !== null) {
+    if (!R.prevT || G.timeNow - R.prevT > 0.04) { R.prevT = G.timeNow; R.prev = ropePreview(sim); }
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; R.prev.forEach((q, i) => { ctx.globalAlpha = 1 - i / R.prev.length * 0.8; ctx.beginPath(); ctx.arc(ox + q[0] * sc, oy + q[1] * sc, Math.max(2.5, 0.12 * sc), 0, TAU); ctx.fill(); }); ctx.globalAlpha = 1;
+  }
+  if (R.demo && R.demo.fin) { const f = R.demo.fin; ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.strokeStyle = 'rgba(40,40,100,0.7)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(ox + f.x * sc, oy + f.y * sc, 0.7 * sc, 0, TAU); ctx.fill(); ctx.stroke(); }
   if (R.ptr && R.pid !== null && S.aim === 'tirachinas' && R.p0) { ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(ox + R.p0.x * sc, oy + R.p0.y * sc); ctx.lineTo(ox + R.ptr.x * sc, oy + R.ptr.y * sc); ctx.stroke(); ctx.setLineDash([]); }
   if (Math.abs(sim.gx) > 0.05) { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '600 13px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('Gravedad ' + (sim.gx > 0 ? '→' : '←'), ox + 14, oy + 24); }
   ctx.restore(); drawParts(R);
@@ -958,7 +979,12 @@ function renderScene() {
   if (G.scene === 'room' && G.room) { if (G.room.kind === 'mem') renderMem(G.room); else renderRope(G.room); }
   else if (G.scene === 'puzzle' && G.puzzle) renderPuzzle(G.puzzle);
 }
+function ropeBar(R) {
+  const rb = $('rbar'); if (G.busy || G.scene !== 'room') { rb.hidden = true; return; }
+  const sk = R.attempts >= 3 || (G.timeNow - (R.t0 || (R.t0 = G.timeNow))) > 90; rb.hidden = false; $('rSkip').hidden = !sk;
+}
 function checkRoom(R) {
+  if (R.demo) { if (R.sim.state !== 'play' || R.sim.time > 9) endDemo(R); return; }
   if (R.state === 'play') { if (R.sim.state === 'won') { R.state = 'won'; R.winDelay = 0; } else if (R.sim.state === 'dead') restartRoom(); }
 }
 function advance(dt) {
@@ -968,7 +994,8 @@ function advance(dt) {
     const R = G.room; if (R.state === 'won') { R.winDelay += dt; if (R.winDelay > 0.45) { R.state = 'done'; onWon(R); } return; }
     if (R.state !== 'play') return;
     if (R.kind === 'mem') { R.acc += dt; const DT = MC.DT; while (R.acc >= DT) { R.sim.step(); R.acc -= DT; if (R.sim.state !== 'play') break; } }
-    else { if (R.freeze > 0) R.freeze -= dt; else { R.acc += dt; const DT = CC.DT; while (R.acc >= DT) { R.sim.step(); R.acc -= DT; if (R.sim.state !== 'play') break; } } }
+    else { if (R.freeze > 0) R.freeze -= dt; else { R.acc += dt; const DT = CC.DT; while (R.acc >= DT) { if (R.demo) stepDemo(R, DT); R.sim.step(); R.acc -= DT; if (R.sim.state !== 'play') break; } } }
+    if (R.kind === 'rope') ropeBar(R);
     checkRoom(R);
   } else if (G.scene === 'puzzle' && G.puzzle) {
     const P = G.puzzle; if (P.state === 'won') { P.winDelay += dt; if (P.winDelay > 0.7) { P.state = 'done'; onWon(P); } }
@@ -979,7 +1006,30 @@ function frame(t) {
   const raw = (t - lastT) / 1000, dt = Math.min(0.05, raw); lastT = t; if (!G.paused) advance(dt); renderScene();
   /* Resolución adaptativa: si el dispositivo va lento de forma sostenida, se baja la densidad de píxeles (mínimo 1) */
   if (G.scene === 'room' || G.scene === 'puzzle') { G.ema = G.ema ? G.ema * 0.95 + raw * 0.05 : raw; if (++G.slow > 90 && G.ema > 0.026 && (G.dprCap || 2) > 1 && !G.busy && document.visibilityState === 'visible') { G.dprCap = Math.max(1, (G.dprCap || 2) - 0.25); G.slow = 0; G.ema = 0; resize(); } }
+  if (S.fps) { G.fpsN = (G.fpsN || 0) + 1; G.fpsA = (G.fpsA || 0) + raw; if (G.fpsA >= 0.5) { $('fps').textContent = Math.round(G.fpsN / G.fpsA) + ' fps · dpr ' + dpr.toFixed(2) + (G.fpsMax ? ' · peor ' + Math.round(1000 * G.fpsMax) + ' ms' : ''); G.fpsN = 0; G.fpsA = 0; G.fpsMax = 0; } G.fpsMax = Math.max(G.fpsMax || 0, raw); }
   requestAnimationFrame(frame);
+}
+/* Vista previa: copia de la simulación, se mantiene el tirón 0,25 s más y se suelta; devuelve puntos de la trayectoria. */
+function ropePreview(sim) {
+  const s = sim.clone(), pts = []; let rel = false;
+  for (let n = 0; n < 240 * 1.8 && s.core.st === 'play'; n++) { if (!rel && n >= 60) { s.releasePull(); rel = true; } s.step(); if (n % 8 === 0) pts.push([s.core.x, s.core.y]); }
+  return pts;
+}
+/* Demostración: reinicia la sala y reproduce la solución guardada con un dedo fantasma. No cuenta como intento ni da estrellas. */
+function startDemo(R) {
+  if (!R || R.kind !== 'rope' || !R.meta.acts || R.state !== 'play') return;
+  buildSim(R); R.sim.started = true; R.demo = { i: 0, rel: null, fin: null }; hint('Mira: así se resuelve. Toca la pantalla para probar tú.');
+}
+function endDemo(R) { R.demo = null; buildSim(R); R.sim.started = true; }
+function stepDemo(R, dt) {
+  const D = R.demo, sim = R.sim, acts = R.meta.acts;
+  while (D.i < acts.length && sim.time >= acts[D.i].t - 1e-9) {
+    const a = acts[D.i++];
+    if (a.type === 'cut') { const t = sim.threads[a.i]; sim.cut(a.i); D.fin = { x: t.ax + (sim.core.x - t.ax) * 0.5, y: t.ay + (sim.core.y - t.ay) * 0.5, until: sim.time + 0.4 }; }
+    else { sim.setPull(a.x, a.depth); D.rel = sim.time + a.hold; D.fin = { x: a.x, y: R.def.cloth.y + a.depth * 0.5, until: D.rel + 0.3 }; }
+  }
+  if (D.rel !== null && sim.time >= D.rel) { sim.releasePull(); D.rel = null; }
+  if (D.fin && sim.time > D.fin.until) D.fin = null;
 }
 function restartRoom(manual) { const R = G.room; if (!R) return; R.attempts++; const keep = R.attempts, kind = R.kind; buildSim(R); R.attempts = keep; R.sim.started = true; if (kind === 'rope') R.sim.started = true; }
 
@@ -992,9 +1042,10 @@ cv.addEventListener('pointerdown', e => {
   if (R.kind === 'mem') {
     const wx = clamp((px - ox) / sc, 0.05, W - 0.05), wy = clamp((py - S.offset - oy) / sc, 0.05, H - 0.05); cv.setPointerCapture(e.pointerId); R.sim.fingers.set(e.pointerId, { x: wx, y: wy, env: 0 }); R.sim.started = true; R.touches++; slide(190, 120, 0.09, 0.07);
   } else {
+    if (R.demo) endDemo(R);
     const wx = (px - ox) / sc, wy = (py - oy) / sc, sim = R.sim, idx = sim.nearestThread(wx, wy, Math.max(0.7, 30 / sc));
     sim.started = true; if (idx >= 0) { sim.cut(idx); return; }
-    if (wy > R.def.cloth.y - 5) { R.pid = e.pointerId; cv.setPointerCapture(e.pointerId); R.p0 = { x: wx, y: wy }; ropePull(R, wx, wy); }
+    R.pid = e.pointerId; cv.setPointerCapture(e.pointerId); R.p0 = { x: wx, y: wy }; ropePull(R, wx, wy);
   }
 });
 function ropePull(R, wx, wy) { const cl = R.def.cloth, p0 = R.p0, depth = clamp(0.65 + Math.max(0, wy - p0.y) * 0.5, 0.6, 1.5), x = S.aim === 'tirachinas' ? p0.x - (wx - p0.x) : wx; R.sim.setPull(clamp(x, cl.x0, cl.x1), depth); R.ptr = { x: wx, y: wy }; }
@@ -1014,6 +1065,7 @@ function starsFor(R) {
   return { n: 1 + (first ? 1 : 0) + (eff ? 1 : 0), crit: [['Completado', true], ['A la primera', first], [effTxt, eff]] };
 }
 function showWin(o) {
+  $('rbar').hidden = true;
   $('winT').textContent = o.title; $('winS').textContent = o.sub || ''; const row = $('winStars'); row.innerHTML = '';
   for (let i = 0; i < o.max; i++) { const s = document.createElement('span'); s.textContent = '★'; if (i < o.n) { s.className = 'on'; s.style.animationDelay = (G.fast ? 0 : i * 160) + 'ms'; } row.appendChild(s); }
   const ul = $('winCrit'); ul.innerHTML = ''; for (const [t, v] of o.crit || []) { const li = document.createElement('li'); li.className = v ? '' : 'no'; const a = document.createElement('span'), b = document.createElement('span'); a.textContent = t; b.textContent = v ? '✓' : '✗'; li.appendChild(a); li.appendChild(b); ul.appendChild(li); }
@@ -1058,7 +1110,7 @@ function buildShell(s, layer) {
   return e;
 }
 async function cubeFlip(prepare, peel) {
-  G.busy = true; $('bar').hidden = true; $('pzbar').hidden = true; hint(''); const snapA = snapshot();
+  G.busy = true; $('rbar').hidden = true; $('bar').hidden = true; $('pzbar').hidden = true; hint(''); const snapA = snapshot();
   if (G.fast || REDUCED) { await prepare(); G.busy = false; return; }
   const stage = $('cubeStage'), cube = $('cube'); stage.hidden = false; const s = buildCube(snapA, G.layer); let e = 0; if (peel) e = buildShell(s, G.layer); else $('shell').innerHTML = '';
   const to = (tr, ms) => { cube.style.transition = 'transform ' + ms + 'ms cubic-bezier(.4,0,.2,1)'; cube.style.transform = tr; return wait(ms + 40); };
@@ -1073,8 +1125,8 @@ async function openDoor() { if (G.fast || REDUCED) return; const d = $('door'), 
 
 /* ---------- Flujos de juego ---------- */
 function setHud(label, showRestart) { $('bar').hidden = false; $('lbl').textContent = label; $('restart').style.display = showRestart === false ? 'none' : ''; updateBadge(); }
-function show(scene) { G.scene = scene; $('hub').hidden = true; $('shop').hidden = true; $('win').hidden = true; $('pzbar').hidden = scene !== 'puzzle'; if (scene === 'room' || scene === 'puzzle') $('bar').hidden = false; }
-function toHub() { G.scene = 'hub'; G.room = null; G.puzzle = null; $('bar').hidden = true; $('pzbar').hidden = true; $('win').hidden = true; $('panel').hidden = true; hint(''); refreshHub(); $('hub').hidden = false; }
+function show(scene) { G.scene = scene; $('hub').hidden = true; $('shop').hidden = true; $('win').hidden = true; $('pzbar').hidden = scene !== 'puzzle'; $('rbar').hidden = true; if (scene === 'room' || scene === 'puzzle') $('bar').hidden = false; }
+function toHub() { $('rbar').hidden = true; G.scene = 'hub'; G.room = null; G.puzzle = null; $('bar').hidden = true; $('pzbar').hidden = true; $('win').hidden = true; $('panel').hidden = true; hint(''); refreshHub(); $('hub').hidden = false; }
 function refreshHub() { $('mCuboS').textContent = 'Capa ' + S.cubeLayer; $('mMemS').textContent = 'Nivel ' + S.mem; $('mRopeS').textContent = 'Sala ' + S.rope; updateBadge(); }
 const STAGE_NAME = ['Membrana', 'Cuerdas', 'Puerta'];
 function prepareCuboStage() {
@@ -1097,7 +1149,7 @@ function startMem(i) {
 function startMemPuzzle() { G.mode = 'mem'; const N = Math.min(8, 3 + G.block), P = newPuzzle(N, G.block * 7919 + 5, { opt: true }); P.seed = G.block * 7919 + 5; G.puzzle = P; G.room = null; show('puzzle'); setHud('Puzle opcional · ' + N + 'x' + N, false); hint('Puzle opcional: 5 estrellas. Las pistas restan una estrella cada una.'); }
 function startRope(i) {
   if (!sortedPool.length) { toast('No hay salas de cuerdas en esta versión.'); return; }
-  G.mode = 'rope'; G.idx = Math.max(1, i); S.rope = Math.max(S.rope, G.idx); save(); $('hub').hidden = true; const r = ropeRoomFor(Math.min(G.idx - 1, sortedPool.length - 1), 1);
+  G.mode = 'rope'; G.idx = Math.max(1, i); S.rope = Math.max(S.rope, G.idx); save(); $('hub').hidden = true; const r = ropeRoomFor(Math.min(G.idx - 1, sortedPool.length + 1), 1);
   G.room = r; G.puzzle = null; show('room'); setHud('Cuerdas · sala ' + G.idx); hint(r.meta.hint);
 }
 function startCol(N) { G.mode = 'col'; const seed = Math.floor(Math.random() * 1e6); const P = newPuzzle(N, seed, { practice: true }); P.seed = seed; G.puzzle = P; G.room = null; $('hub').hidden = true; show('puzzle'); setHud('Práctica ' + N + 'x' + N, true); hint('Práctica sin estrellas. Un pompón por color, fila y columna, sin tocarse.'); }
@@ -1124,7 +1176,7 @@ function renderShop() {
 }
 
 /* ---------- Menú, ajustes, botones ---------- */
-function paintOpts() { $('optSnd').textContent = 'Sonido: ' + (S.sound ? 'sí' : 'no'); $('aimD').classList.toggle('on', S.aim === 'directo'); $('aimT').classList.toggle('on', S.aim === 'tirachinas'); $('offR').value = S.offset; $('offO').textContent = S.offset; }
+function paintOpts() { $('optFps').textContent = S.fps ? 'Ocultar fps' : 'Mostrar fps'; $('fps').hidden = !S.fps; $('optSnd').textContent = 'Sonido: ' + (S.sound ? 'sí' : 'no'); $('aimD').classList.toggle('on', S.aim === 'directo'); $('aimT').classList.toggle('on', S.aim === 'tirachinas'); $('offR').value = S.offset; $('offO').textContent = S.offset; }
 let armedReset = 0;
 $('mCubo').onclick = () => { initAudio(); startCubo(S.cubeLayer); }; $('mMem').onclick = () => { initAudio(); startMem(S.mem); }; $('mRope').onclick = () => { initAudio(); startRope(S.rope); };
 $('mCol').onclick = () => { initAudio(); startColChoice(); }; $('mShop').onclick = () => { $('hub').hidden = true; $('shop').hidden = false; renderShop(); updateBadge(); };
@@ -1137,6 +1189,9 @@ $('offR').oninput = e => { S.offset = Number(e.target.value); $('offO').textCont
 $('optReset').onclick = () => { if (armedReset) { clearTimeout(armedReset); armedReset = 0; S = defSave(); save(); updateBadge(); refreshHub(); $('panel').hidden = true; toast('Progreso borrado.'); } else { toast('Toca otra vez para borrar todo el progreso.'); armedReset = setTimeout(() => { armedReset = 0; }, 2800); } };
 $('back').onclick = backToMenu;
 $('restart').onclick = () => { if (G.busy) return; if (G.scene === 'puzzle' && G.puzzle) { const P = G.puzzle; for (let r = 0; r < P.N; r++) for (let c = 0; c < P.N; c++) if (!P.locked.has(r * P.N + c)) P.cells[r][c] = 0; pzCheck(P); } else if (G.room) { const R = G.room; R.attempts++; const k = R.attempts; buildSim(R); R.attempts = k; R.sim.started = true; } };
+$('rDemo').onclick = () => { if (G.busy) return; initAudio(); startDemo(G.room); };
+$('rSkip').onclick = () => { if (G.busy || !G.room) return; $('rbar').hidden = true; if (G.mode === 'cubo') cuboNext(); else if (G.mode === 'rope') startRope(G.idx + 1); };
+$('optFps').onclick = () => { S.fps = !S.fps; save(); paintOpts(); };
 $('pzHint').onclick = () => { if (G.puzzle && !G.busy) pzHint(G.puzzle); }; $('pzClear').onclick = () => $('restart').click();
 
 /* ---------- Ganchos de prueba ---------- */
@@ -1153,7 +1208,7 @@ function botRoom(R) {
 function botPuzzle(P) { for (let r = 0; r < P.N; r++) P.cells[r][P.sol[r]] = 2; pzCheck(P); }
 window.__c = { G, get S() { return S; }, save, ITEMS, MC, CC, CO, sortedPool, startCubo, startMem, startRope, startCol, cuboNext, toHub, tick: advance, botRoom, botPuzzle, pzTap, pzHint, snapshot, renderScene, newPuzzle, memRoomFor, ropeRoomFor, resetSave() { S = defSave(); save(); updateBadge(); refreshHub(); }, setFast(v) { G.fast = v; }, setPaused(v) { G.paused = v; }, retryCurrent };
 
-updateBadge(); refreshHub(); resize(); requestAnimationFrame(frame);
+updateBadge(); refreshHub(); paintOpts(); resize(); requestAnimationFrame(frame);
 })();
 
 </script>
